@@ -2,11 +2,13 @@ from flask import Flask, render_template, request
 import requests
 import pandas as pd
 import math
+import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from city_utils import normalize_city
+from city_utils import normalize_city, CITY_ALIASES
 
 app = Flask(__name__)
 
@@ -20,7 +22,7 @@ REVERSE_GEOCODE_URL = "https://nominatim.openstreetmap.org/reverse"
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
 HEADERS = {
-    "User-Agent": "SafePathAI-StudentProject/1.0"
+    "User-Agent": "SafePathAI-StudentProject/1.0 (https://github.com/scrambledgamer2806-boop/SAFEPATH-AI)"
 }
 
 # Default fallback center
@@ -90,90 +92,225 @@ except Exception as e:
 
 
 # ============================================================
+# KNOWN CITIES — the cities our dataset actually covers.
+# Used so a typed city name always resolves to a dataset city
+# even if the geocoder returns it under an odd address key
+# (e.g. "Delhi" often has no "city" field at all).
+# ============================================================
+
+PHOTON_URL = "https://photon.komoot.io/api/"
+
+# Approximate city centres, used ONLY as a last-resort fallback when
+# every online geocoder is unreachable, so a plain city name still works.
+CITY_CENTERS = {
+    "agra": (27.1767, 78.0081), "ahmedabad": (23.0225, 72.5714),
+    "bangalore": (12.9716, 77.5946), "bhopal": (23.2599, 77.4126),
+    "chennai": (13.0827, 80.2707), "delhi": (28.6139, 77.2090),
+    "faridabad": (28.4089, 77.3178), "ghaziabad": (28.6692, 77.4538),
+    "hyderabad": (17.3850, 78.4867), "indore": (22.7196, 75.8577),
+    "jaipur": (26.9124, 75.7873), "kalyan": (19.2437, 73.1355),
+    "kanpur": (26.4499, 80.3319), "kolkata": (22.5726, 88.3639),
+    "lucknow": (26.8467, 80.9462), "ludhiana": (30.9010, 75.8573),
+    "meerut": (28.9845, 77.7064), "mumbai": (19.0760, 72.8777),
+    "nagpur": (21.1458, 79.0882), "nashik": (19.9975, 73.7898),
+    "patna": (25.5941, 85.1376), "pune": (18.5204, 73.8567),
+    "rajkot": (22.3039, 70.8022), "srinagar": (34.0837, 74.7973),
+    "surat": (21.1702, 72.8311), "thane": (19.2183, 72.9781),
+    "varanasi": (25.3176, 82.9739), "vasai": (19.4259, 72.8225),
+    "visakhapatnam": (17.6868, 83.2185),
+}
+
+
+def known_cities():
+
+    if risk_df.empty:
+        return set()
+
+    return {
+        normalize_city(c)
+        for c in risk_df["city"].astype(str).unique()
+    }
+
+
+def find_known_city(*texts):
+
+    """
+    Look for a dataset city name (or a known alias like Bengaluru /
+    Bombay) as a whole word inside any of the given text snippets.
+    """
+
+    cities = known_cities()
+
+    if not cities:
+        return ""
+
+    haystack = " | ".join(str(t).lower() for t in texts if t)
+
+    candidates = {c: c for c in cities}
+    candidates.update({
+        alias: target
+        for alias, target in CITY_ALIASES.items()
+        if target in cities
+    })
+
+    # longest names first so "bengaluru urban" beats "bengaluru"
+    for name in sorted(candidates, key=len, reverse=True):
+
+        if re.search(rf"\b{re.escape(name)}\b", haystack):
+            return candidates[name]
+
+    return ""
+
+
+def city_from_address(address, display_name="", typed=""):
+
+    """
+    Work out the dataset city from a geocoder address, trying every
+    field a city can hide in, then falling back to text matching.
+    """
+
+    cities = known_cities()
+
+    for key in (
+        "city", "town", "municipality", "city_district",
+        "village", "county", "state_district", "state",
+    ):
+
+        value = normalize_city(address.get(key, ""))
+
+        if value and (not cities or value in cities):
+            return value
+
+    found = find_known_city(display_name, typed)
+
+    if found:
+        return found
+
+    # nothing matched the dataset — return best guess so the error
+    # message can name the place that has no data
+    for key in ("city", "town", "municipality", "village", "county"):
+
+        value = normalize_city(address.get(key, ""))
+
+        if value:
+            return value
+
+    return ""
+
+
+# ============================================================
 # GEOCODING
 # ============================================================
+
+def _nominatim_search(location_str):
+
+    response = requests.get(
+        GEOCODE_URL,
+        params={
+            "q": location_str,
+            "format": "json",
+            "limit": 1,
+            "addressdetails": 1,
+            "countrycodes": "in",
+        },
+        headers=HEADERS,
+        timeout=8,
+    )
+
+    response.raise_for_status()
+
+    results = response.json()
+
+    if not results:
+        return None
+
+    result = results[0]
+
+    return (
+        float(result["lat"]),
+        float(result["lon"]),
+        result.get("display_name", location_str),
+        result.get("address", {}),
+    )
+
+
+def _photon_search(location_str):
+
+    """Backup geocoder in case Nominatim blocks / rate-limits the server."""
+
+    response = requests.get(
+        PHOTON_URL,
+        params={"q": location_str, "limit": 1},
+        headers=HEADERS,
+        timeout=8,
+    )
+
+    response.raise_for_status()
+
+    features = response.json().get("features", [])
+
+    if not features:
+        return None
+
+    feature = features[0]
+    props = feature.get("properties", {})
+    lng, lat = feature["geometry"]["coordinates"]
+
+    address = {
+        "city": props.get("city") or props.get("name", ""),
+        "county": props.get("county", ""),
+        "state": props.get("state", ""),
+    }
+
+    display = ", ".join(
+        p for p in (props.get("name"), props.get("city"), props.get("state")) if p
+    ) or location_str
+
+    return float(lat), float(lng), display, address
+
 
 def geocode_location(location_str):
 
     """
-    Convert a typed address/place into real coordinates
-    using OpenStreetMap Nominatim.
+    Convert a typed place into coordinates + dataset city.
 
-    Returns:
+    Tries Nominatim, then Photon, then (for plain city names that our
+    dataset covers) a built-in city-centre fallback.
 
-        lat
-        lng
-        display_name
-        city
-        found
+    Returns: lat, lng, display_name, city, found
     """
 
-    try:
+    for search in (_nominatim_search, _photon_search):
 
-        response = requests.get(
+        try:
 
-            GEOCODE_URL,
+            hit = search(location_str)
 
-            params={
-                "q": location_str,
-                "format": "json",
-                "limit": 1,
-                "addressdetails": 1,
-            },
+            if hit:
 
-            headers=HEADERS,
+                lat, lng, display_name, address = hit
 
-            timeout=8,
-        )
+                city = city_from_address(address, display_name, location_str)
 
-        response.raise_for_status()
+                return lat, lng, display_name, city, True
 
-        results = response.json()
+        except Exception as e:
 
-        if results:
+            print(f"Geocoding error ({search.__name__}):", e)
 
-            result = results[0]
+    # Last resort: user typed a city we have data for, but every online
+    # geocoder failed. Use the known city centre rather than failing.
+    typed_city = find_known_city(location_str)
 
-            lat = float(result["lat"])
-            lng = float(result["lon"])
+    if typed_city and typed_city in CITY_CENTERS:
 
-            display_name = result.get(
-                "display_name",
-                location_str
-            )
+        lat, lng = CITY_CENTERS[typed_city]
 
-            address = result.get(
-                "address",
-                {}
-            )
+        print(f"Geocoders unreachable — using built-in centre for {typed_city}")
 
-            city = (
-                address.get("city")
-                or address.get("town")
-                or address.get("municipality")
-                or address.get("village")
-                or ""
-            )
+        return lat, lng, f"{typed_city.title()} (city centre)", typed_city, True
 
-            return (
-                lat,
-                lng,
-                display_name,
-                normalize_city(city),
-                True
-            )
-
-    except Exception as e:
-
-        print("Geocoding error:", e)
-
-    return (
-        DEFAULT_LAT,
-        DEFAULT_LNG,
-        location_str,
-        "",
-        False
-    )
+    return DEFAULT_LAT, DEFAULT_LNG, location_str, "", False
 
 
 # ============================================================
@@ -182,14 +319,12 @@ def geocode_location(location_str):
 
 def reverse_geocode_city(lat, lng):
 
-    """Convert GPS coordinates into a city name."""
+    """Convert GPS coordinates into a dataset city name."""
 
     try:
 
         response = requests.get(
-
             REVERSE_GEOCODE_URL,
-
             params={
                 "lat": lat,
                 "lon": lng,
@@ -197,9 +332,7 @@ def reverse_geocode_city(lat, lng):
                 "zoom": 10,
                 "addressdetails": 1,
             },
-
             headers=HEADERS,
-
             timeout=8,
         )
 
@@ -207,20 +340,10 @@ def reverse_geocode_city(lat, lng):
 
         result = response.json()
 
-        address = result.get(
-            "address",
-            {}
+        return city_from_address(
+            result.get("address", {}),
+            result.get("display_name", ""),
         )
-
-        city = (
-            address.get("city")
-            or address.get("town")
-            or address.get("municipality")
-            or address.get("village")
-            or ""
-        )
-
-        return normalize_city(city)
 
     except Exception as e:
 
@@ -591,7 +714,7 @@ def get_nearby_amenity(lat, lng, tag_filter, label, radius=3000):
     """
 
     query = f"""
-    [out:json][timeout:8];
+    [out:json][timeout:6];
     (
       node[{tag_filter}](around:{radius},{lat},{lng});
       way[{tag_filter}](around:{radius},{lat},{lng});
@@ -605,7 +728,7 @@ def get_nearby_amenity(lat, lng, tag_filter, label, radius=3000):
             OVERPASS_URL,
             data={"data": query},
             headers=HEADERS,
-            timeout=9,
+            timeout=7,
         )
 
         response.raise_for_status()
@@ -656,15 +779,19 @@ def get_destinations(lat, lng):
     UI never silently pretends a fake point is real.
     """
 
-    hospital = get_nearby_amenity(lat, lng, '"amenity"="hospital"', "Nearest Hospital")
+    # Run all four lookups at the same time instead of one after another.
+    # Sequential calls could add up to >30s and get the request killed
+    # by gunicorn's default worker timeout.
+    with ThreadPoolExecutor(max_workers=4) as pool:
 
-    police = get_nearby_amenity(lat, lng, '"amenity"="police"', "Nearest Police Station")
+        f_hosp = pool.submit(get_nearby_amenity, lat, lng, '"amenity"="hospital"', "Nearest Hospital")
+        f_pol = pool.submit(get_nearby_amenity, lat, lng, '"amenity"="police"', "Nearest Police Station")
+        f_bus = pool.submit(get_nearby_amenity, lat, lng, '"highway"="bus_stop"', "Nearest Bus Stop")
+        f_stn = pool.submit(get_nearby_amenity, lat, lng, '"railway"="station"', "Nearest Station", 5000)
 
-    transit = get_nearby_amenity(
-        lat, lng, '"highway"="bus_stop"', "Nearest Bus Stop"
-    ) or get_nearby_amenity(
-        lat, lng, '"railway"="station"', "Nearest Station", radius=5000
-    )
+        hospital = f_hosp.result()
+        police = f_pol.result()
+        transit = f_bus.result() or f_stn.result()
 
     fallback_offsets = {
         "hospital": (-0.022, 0.015, "Hospital (approximate — live lookup unavailable)"),
@@ -756,9 +883,16 @@ def analyze():
 
     if not city:
 
+        city = find_known_city(raw_input)
+
+    if not city:
+
         return render_template(
             "index.html",
-            error="We found the location, but could not determine its city.",
+            error=(
+                "We found the location, but couldn't tell which city it is in. "
+                "Try typing the city name too, e.g. \"Koramangala, Bangalore\"."
+            ),
         )
 
     current_time, time_period = get_current_time_period()
