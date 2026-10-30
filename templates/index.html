@@ -4,121 +4,237 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SafePath AI</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
     <style>
-        body { background: #0f0f1a; color: #fff; font-family: 'Segoe UI', sans-serif; }
-        .hero { background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
-                min-height: 100vh; display: flex; align-items: center; }
-        .card-glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px);
-                      border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; }
-        .btn-primary { background: #e94560; border: none; padding: 12px 30px; border-radius: 8px; }
-        .btn-primary:hover { background: #c73652; }
-        .btn-outline { border: 1px solid #e94560; color: #e94560; background: transparent;
-                       padding: 12px 30px; border-radius: 8px; }
-        .btn-outline:hover { background: #e94560; color: white; }
-        input.form-control { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
-                             color: white; padding: 14px; border-radius: 8px; font-size: 16px; }
-        input.form-control::placeholder { color: rgba(255,255,255,0.4); }
-        input.form-control:focus { background: rgba(255,255,255,0.12); border-color: #e94560;
-                                   color: white; box-shadow: none; }
-        .error-banner {
-            background: rgba(220,53,69,0.15); border: 1px solid #dc3545;
-            color: #ff8a94; border-radius: 8px; padding: 10px 16px;
-            margin-bottom: 16px; font-size: 0.9rem;
+        body {
+            background: #0f0f1a;
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
         }
+
+        .hero-wrap {
+            width: 100%;
+            padding: 40px 0;
+        }
+
+        .brand {
+            color: #e94560;
+            font-weight: bold;
+            font-size: 1.6rem;
+        }
+
+        .tagline {
+            color: rgba(255,255,255,0.5);
+            font-size: 0.95rem;
+            margin-top: 4px;
+        }
+
+        .card-glass {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 32px;
+        }
+
+        .form-control {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #fff;
+            padding: 14px 16px;
+            border-radius: 10px;
+            font-size: 1rem;
+        }
+
+        .form-control:focus {
+            background: rgba(255,255,255,0.09);
+            border-color: #e94560;
+            color: #fff;
+            box-shadow: 0 0 0 3px rgba(233,69,96,0.15);
+        }
+
+        .form-control::placeholder {
+            color: rgba(255,255,255,0.3);
+        }
+
+        .btn-primary-custom {
+            background: #e94560;
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            font-weight: 600;
+            color: #fff;
+            width: 100%;
+        }
+
+        .btn-primary-custom:hover {
+            background: #d63a53;
+            color: #fff;
+        }
+
+        .btn-secondary-custom {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.15);
+            padding: 14px;
+            border-radius: 10px;
+            color: #fff;
+            width: 100%;
+            font-weight: 500;
+        }
+
+        .btn-secondary-custom:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.25);
+            color: #fff;
+        }
+
+        .feature-item {
+            background: rgba(255,255,255,0.04);
+            border-radius: 10px;
+            padding: 14px;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.65);
+            text-align: center;
+            height: 100%;
+        }
+
+        .feature-item .emoji {
+            font-size: 1.4rem;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .alert-custom {
+            background: rgba(220,53,69,0.12);
+            border: 1px solid #dc3545;
+            color: #ff8a95;
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 0.9rem;
+        }
+
         .disclaimer {
-            font-size: 0.75rem; color: rgba(255,255,255,0.35);
-            margin-top: 28px; line-height: 1.5;
+            font-size: 0.72rem;
+            color: rgba(255,255,255,0.3);
+            margin-top: 24px;
+            text-align: center;
+            line-height: 1.5;
         }
-        #locStatus { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin-top: 8px; min-height: 18px; }
     </style>
 </head>
 <body>
-<section class="hero">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-7 text-center">
 
-                <h1 class="fw-bold mb-2" style="font-size:2.8rem;">
-                    🛡️ SafePath <span style="color:#e94560;">AI</span>
-                </h1>
-                <p class="mb-5" style="color:rgba(255,255,255,0.6); font-size:1.1rem;">
-                    Crime Risk Prediction & Safe Travel Planner
-                </p>
+<div class="hero-wrap">
+    <div class="container" style="max-width: 560px;">
 
-                {% if error %}
-                <div class="error-banner">⚠️ {{ error }}</div>
-                {% endif %}
+        <div class="text-center mb-4">
+            <div class="brand">🛡️ SafePath AI</div>
+            <div class="tagline">Historical crime-risk insight for safer travel decisions</div>
+        </div>
 
-                <div class="card-glass p-4">
-                    <form action="/analyze" method="POST" id="analyzeForm">
-                        <div class="mb-3">
-                            <input type="text" name="location" id="locationInput" class="form-control"
-                                   placeholder="🔍  Enter a location (e.g. Arekere, Bangalore)" required>
-                        </div>
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary fw-bold">
-                                <i class="fas fa-shield-alt me-2"></i> Analyze Area
-                            </button>
-                            <button type="button" class="btn btn-outline fw-bold" onclick="getLocation()">
-                                <i class="fas fa-location-crosshairs me-2"></i> Use My Current Location
-                            </button>
-                        </div>
-                    </form>
-                    <div id="locStatus"></div>
-                </div>
+        <div class="card-glass">
 
-                <div class="row mt-4 text-center">
-                    <div class="col-4">
-                        <div class="card-glass p-3">
-                            <div style="font-size:1.8rem;">📊</div>
-                            <small style="color:rgba(255,255,255,0.6);">Crime Stats</small>
-                        </div>
-                    </div>
-                    <div class="col-4">
-                        <div class="card-glass p-3">
-                            <div style="font-size:1.8rem;">🗺️</div>
-                            <small style="color:rgba(255,255,255,0.6);">Safe Routes</small>
-                        </div>
-                    </div>
-                    <div class="col-4">
-                        <div class="card-glass p-3">
-                            <div style="font-size:1.8rem;">🤖</div>
-                            <small style="color:rgba(255,255,255,0.6);">AI Powered</small>
-                        </div>
+            {% if error %}
+            <div class="alert-custom mb-3">
+                ⚠️ {{ error }}
+            </div>
+            {% endif %}
+
+            <form method="POST" action="/analyze">
+
+                <label class="mb-2" style="color:rgba(255,255,255,0.6); font-size:0.9rem;">
+                    Where are you going?
+                </label>
+
+                <input
+                    type="text"
+                    name="location"
+                    id="locationInput"
+                    class="form-control mb-3"
+                    placeholder="e.g. Koramangala, Bengaluru"
+                    required
+                >
+
+                <button type="submit" class="btn-primary-custom mb-2">
+                    <i class="fas fa-shield-halved me-2"></i> Analyze Safety
+                </button>
+
+                <button type="button" class="btn-secondary-custom" onclick="useMyLocation()">
+                    <i class="fas fa-location-crosshairs me-2"></i> Use My Location
+                </button>
+
+            </form>
+
+        </div>
+
+        <div class="mt-4">
+            <div class="row g-2">
+                <div class="col-3">
+                    <div class="feature-item">
+                        <span class="emoji">🛡️</span>
+                        Check area safety
                     </div>
                 </div>
-
-                <p class="disclaimer">
-                    Demo prototype. Risk scores are generated by a simulated model for
-                    demonstration purposes and are not sourced from official crime records.
-                </p>
-
+                <div class="col-3">
+                    <div class="feature-item">
+                        <span class="emoji">🗺️</span>
+                        Walking routes
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="feature-item">
+                        <span class="emoji">⏰</span>
+                        Safer travel times
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="feature-item">
+                        <span class="emoji">🤖</span>
+                        Explain the risk
+                    </div>
+                </div>
             </div>
         </div>
+
+        <p class="disclaimer">
+            SafePath AI is a student prototype. Risk scores come from a
+            historical crime dataset and reflect city-level, time-of-day
+            patterns — not real-time or street-level predictions.
+        </p>
+
     </div>
-</section>
+</div>
 
 <script>
-function getLocation() {
-    const status = document.getElementById('locStatus');
-    if (navigator.geolocation) {
-        status.textContent = 'Getting your location…';
-        navigator.geolocation.getCurrentPosition(
-            function(pos) {
-                const coords = pos.coords.latitude + "," + pos.coords.longitude;
-                document.getElementById('locationInput').value = coords;
-                status.textContent = '📍 Location captured. Click "Analyze Area" to continue.';
-            },
-            function(err) {
-                status.textContent = '⚠️ Could not get location: ' + err.message;
-            }
-        );
-    } else {
-        status.textContent = 'Geolocation is not supported by your browser.';
+function useMyLocation() {
+
+    if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser.");
+        return;
     }
+
+    const input = document.getElementById('locationInput');
+    input.placeholder = "Getting your location...";
+
+    navigator.geolocation.getCurrentPosition(
+
+        (pos) => {
+            input.value = `${pos.coords.latitude},${pos.coords.longitude}`;
+        },
+
+        (err) => {
+            alert("Could not get your location: " + err.message);
+            input.placeholder = "e.g. Koramangala, Bengaluru";
+        }
+    );
 }
 </script>
+
 </body>
 </html>

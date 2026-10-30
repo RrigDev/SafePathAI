@@ -5,47 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SafePath AI – Results</title>
 
-    <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-
-    <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-
     <style>
+        body { background: #0f0f1a; color: #fff; font-family: 'Segoe UI', sans-serif; }
 
-        /* =====================================================
-           GLOBAL
-        ===================================================== */
-
-        body {
-            background: #0f0f1a;
-            color: #fff;
-            font-family: 'Segoe UI', sans-serif;
-        }
-
-
-        /* =====================================================
-           NAVBAR
-        ===================================================== */
-
-        .navbar-brand {
-            color: #e94560 !important;
-            font-weight: bold;
-            font-size: 1.4rem;
-        }
-
-
-        /* =====================================================
-           GLASS CARDS
-        ===================================================== */
+        .navbar-brand { color: #e94560 !important; font-weight: bold; font-size: 1.4rem; }
 
         .card-glass {
             background: rgba(255,255,255,0.05);
@@ -55,1814 +24,647 @@
             padding: 24px;
         }
 
-
-        /* =====================================================
-           SAFETY SCORE
-        ===================================================== */
-
         .score-circle {
-            width: 140px;
-            height: 140px;
-            border-radius: 50%;
-
-            display: flex;
-            flex-direction: column;
-
-            align-items: center;
-            justify-content: center;
-
-            font-size: 2.2rem;
-            font-weight: bold;
-
-            margin: 0 auto;
+            width: 140px; height: 140px; border-radius: 50%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 2.2rem; font-weight: bold; margin: 0 auto;
         }
 
-
-        .risk-low {
-            background: rgba(40,167,69,0.2);
-            border: 3px solid #28a745;
-            color: #28a745;
-        }
-
-
-        .risk-medium {
-            background: rgba(255,193,7,0.2);
-            border: 3px solid #ffc107;
-            color: #ffc107;
-        }
-
-
-        .risk-high {
-            background: rgba(220,53,69,0.2);
-            border: 3px solid #dc3545;
-            color: #dc3545;
-        }
-
-
-        /* =====================================================
-           STAT CARDS
-        ===================================================== */
+        .risk-low { background: rgba(40,167,69,0.2); border: 3px solid #28a745; color: #28a745; }
+        .risk-medium { background: rgba(255,193,7,0.2); border: 3px solid #ffc107; color: #ffc107; }
+        .risk-high { background: rgba(220,53,69,0.2); border: 3px solid #dc3545; color: #dc3545; }
 
         .stat-card {
             background: rgba(255,255,255,0.04);
             border: 1px solid rgba(255,255,255,0.08);
-
-            border-radius: 12px;
-
-            padding: 16px;
-
-            text-align: center;
+            border-radius: 12px; padding: 16px; text-align: center;
         }
 
+        .stat-number { font-size: 1.8rem; font-weight: bold; color: #e94560; }
 
-        .stat-number {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: #e94560;
-        }
-
-
-        /* =====================================================
-           MAP
-        ===================================================== */
-
-        #map {
-            height: 400px;
-            border-radius: 12px;
-            z-index: 1;
-        }
-
-
-        /* =====================================================
-           SAFETY TIPS
-        ===================================================== */
+        #map { height: 400px; border-radius: 12px; z-index: 1; }
 
         .tip-item {
             background: rgba(255,255,255,0.04);
-
             border-left: 3px solid #e94560;
-
-            border-radius: 8px;
-
-            padding: 12px 16px;
-
-            margin-bottom: 10px;
+            border-radius: 8px; padding: 12px 16px; margin-bottom: 10px;
         }
 
-
-        /* =====================================================
-           BACK BUTTON
-        ===================================================== */
-
-        .btn-back {
-            background: #e94560;
-            border: none;
-
-            padding: 10px 24px;
-
-            border-radius: 8px;
-
-            color: white;
-        }
-
-
-        /* =====================================================
-           NOTICE
-        ===================================================== */
+        .btn-back { background: #e94560; border: none; padding: 10px 24px; border-radius: 8px; color: white; }
 
         .notice-banner {
-            background: rgba(255,193,7,0.1);
-
-            border: 1px solid #ffc107;
-
-            color: #ffd764;
-
-            border-radius: 8px;
-
-            padding: 10px 16px;
-
-            margin-bottom: 16px;
-
-            font-size: 0.85rem;
+            background: rgba(255,193,7,0.1); border: 1px solid #ffc107; color: #ffd764;
+            border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; font-size: 0.85rem;
         }
-
-
-        /* =====================================================
-           DISCLAIMER
-        ===================================================== */
 
         .disclaimer {
-            font-size: 0.72rem;
-
-            color: rgba(255,255,255,0.3);
-
-            margin-top: 30px;
-            margin-bottom: 10px;
-
-            line-height: 1.5;
-
-            text-align: center;
+            font-size: 0.72rem; color: rgba(255,255,255,0.3);
+            margin-top: 30px; margin-bottom: 10px; line-height: 1.6; text-align: center;
         }
-
-
-        /* =====================================================
-           ROUTE BUTTONS
-        ===================================================== */
 
         .route-btn {
-            display: flex;
-
-            align-items: center;
-
-            gap: 12px;
-
-            background: rgba(255,255,255,0.04);
-
-            border: 1px solid rgba(255,255,255,0.1);
-
-            border-radius: 10px;
-
-            padding: 12px 16px;
-
-            cursor: pointer;
-
-            color: #fff;
-
-            font-family: 'Segoe UI', sans-serif;
-
-            font-size: 0.9rem;
-
-            width: 100%;
-
-            transition:
-                border-color .2s,
-                background .2s;
-
-            text-align: left;
+            display: flex; align-items: center; gap: 12px;
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; padding: 12px 16px; cursor: pointer; color: #fff;
+            font-family: 'Segoe UI', sans-serif; font-size: 0.9rem; width: 100%;
+            transition: border-color .2s, background .2s; text-align: left;
         }
 
+        .route-btn:hover { border-color: #e94560; background: rgba(233,69,96,0.08); }
+        .route-btn.active { border-color: #e94560; background: rgba(233,69,96,0.14); }
+        .route-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        .route-btn:hover {
-            border-color: #e94560;
-            background: rgba(233,69,96,0.08);
-        }
-
-
-        .route-btn.active {
-            border-color: #e94560;
-            background: rgba(233,69,96,0.14);
-        }
-
-
-        .dest-icon {
-            font-size: 1.3rem;
-        }
-
-
-        .dest-label {
-            font-weight: 600;
-            font-size: 0.88rem;
-        }
-
-
-        .dest-eta {
-            font-size: 0.75rem;
-            color: rgba(255,255,255,0.45);
-            margin-top: 2px;
-        }
-
+        .dest-icon { font-size: 1.3rem; }
+        .dest-label { font-weight: 600; font-size: 0.88rem; }
+        .dest-eta { font-size: 0.75rem; color: rgba(255,255,255,0.45); margin-top: 2px; }
+        .dest-approx { font-size: 0.68rem; color: #ffc107; margin-top: 2px; }
 
         .dest-badge {
-            margin-left: auto;
-
-            font-size: 0.7rem;
-
-            padding: 3px 10px;
-
-            border-radius: 999px;
-
-            font-weight: 600;
-
-            display: none;
+            margin-left: auto; font-size: 0.7rem; padding: 3px 10px;
+            border-radius: 999px; font-weight: 600; display: none;
         }
 
+        .legend-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px; }
+        .legend-item { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; color: rgba(255,255,255,0.6); }
+        .legend-line { width: 28px; height: 4px; border-radius: 2px; }
 
-        /* =====================================================
-           MAP LEGEND
-        ===================================================== */
-
-        .legend-row {
-            display: flex;
-
-            flex-wrap: wrap;
-
-            gap: 16px;
-
-            margin-top: 14px;
-        }
-
-
-        .legend-item {
-            display: flex;
-
-            align-items: center;
-
-            gap: 7px;
-
-            font-size: 0.8rem;
-
-            color: rgba(255,255,255,0.6);
-        }
-
-
-        .legend-line {
-            width: 28px;
-
-            height: 4px;
-
-            border-radius: 2px;
-        }
-
-
-        /* =====================================================
-           ROUTE STATUS
-        ===================================================== */
-
-        .route-status {
-            font-size: 0.8rem;
-
-            color: rgba(255,255,255,0.4);
-
-            margin-top: 10px;
-
-            min-height: 20px;
-        }
-
-
-        .route-status.loading {
-            color: #45aaf2;
-        }
-
-
-        .route-status.error {
-            color: #e94560;
-        }
-
-
-        /* =====================================================
-           DATA SOURCE BADGE
-        ===================================================== */
+        .route-status { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin-top: 10px; min-height: 20px; }
+        .route-status.loading { color: #45aaf2; }
+        .route-status.error { color: #e94560; }
 
         .data-badge {
-            display: inline-block;
-
-            margin-top: 8px;
-
-            padding: 4px 10px;
-
-            border-radius: 999px;
-
-            background: rgba(69,170,242,0.1);
-
-            border: 1px solid rgba(69,170,242,0.3);
-
-            color: #45aaf2;
-
-            font-size: 0.7rem;
+            display: inline-block; margin-top: 8px; padding: 4px 10px;
+            border-radius: 999px; background: rgba(69,170,242,0.1);
+            border: 1px solid rgba(69,170,242,0.3); color: #45aaf2; font-size: 0.7rem;
         }
 
+        .why-row {
+            display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 0.85rem;
+        }
 
+        .why-bar-track {
+            flex: 1; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;
+        }
+
+        .why-bar-fill { height: 100%; background: #e94560; }
+
+        .time-table { width: 100%; font-size: 0.88rem; }
+        .time-table td, .time-table th { padding: 8px 6px; }
+        .time-table tr.current-row { background: rgba(69,170,242,0.08); border-radius: 6px; }
+        .time-table tr.best-row td { color: #28a745; font-weight: 600; }
+        .time-table tr.selected-row { box-shadow: inset 3px 0 0 #e94560; }
+        .time-table tr.selected-row td:first-child { padding-left: 10px; }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.1);
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px; border-radius: 50%;
+            background: #e94560; cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px; height: 18px; border-radius: 50%;
+            background: #e94560; cursor: pointer; border: 2px solid #fff;
+        }
+
+        .reset-time-btn {
+            background: none; border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.5); font-size: 0.7rem;
+            padding: 3px 10px; border-radius: 999px; cursor: pointer;
+        }
+        .reset-time-btn:hover { border-color: #e94560; color: #fff; }
+
+        .ml-badge {
+            display: inline-block; padding: 3px 10px; border-radius: 999px;
+            background: rgba(233,69,96,0.12); border: 1px solid rgba(233,69,96,0.35);
+            color: #e94560; font-size: 0.7rem; margin-bottom: 10px;
+        }
     </style>
 </head>
-
-
 <body>
 
-
-<!-- =========================================================
-     NAVBAR
-========================================================= -->
-
-<nav
-    class="navbar px-4 py-3"
-    style="
-        background: rgba(255,255,255,0.03);
-        border-bottom: 1px solid rgba(255,255,255,0.08);
-    "
->
-
-    <span class="navbar-brand">
-        🛡️ SafePath AI
-    </span>
-
-
-    <a href="/" class="btn btn-back">
-
-        <i class="fas fa-arrow-left me-2"></i>
-
-        New Search
-
-    </a>
-
+<nav class="navbar px-4 py-3" style="background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.08);">
+    <span class="navbar-brand">🛡️ SafePath AI</span>
+    <a href="/" class="btn btn-back"><i class="fas fa-arrow-left me-2"></i>New Search</a>
 </nav>
-
-
-
-<!-- =========================================================
-     MAIN CONTAINER
-========================================================= -->
 
 <div class="container py-4">
 
-
-    <!-- =====================================================
-         LOCATION HEADER
-    ====================================================== -->
-
     <div class="mb-4">
-
         <h4 class="fw-bold">
-
-            <i
-                class="fas fa-location-dot me-2"
-                style="color:#e94560;"
-            ></i>
-
+            <i class="fas fa-location-dot me-2" style="color:#e94560;"></i>
             {{ location }}
-
         </h4>
 
-
         <small style="color:rgba(255,255,255,0.4);">
-
-            Historical crime analysis for
-            <strong>{{ city }}</strong>
-
-            ·
-
-            {{ time_period }}
-
-            ·
-
-            {{ current_time }}
-
+            Historical crime analysis for <strong>{{ city }}</strong> · {{ time_period }} · {{ current_time }}
         </small>
 
-
         <div>
-
-            <span class="data-badge">
-
-                <i class="fas fa-database me-1"></i>
-
-                Real historical crime dataset
-
-            </span>
-
+            <span class="data-badge"><i class="fas fa-database me-1"></i> Real historical crime dataset</span>
         </div>
-
     </div>
-
-
-
-    <!-- =====================================================
-         GEOCODING WARNING
-    ====================================================== -->
 
     {% if not geocoded %}
-
-    <div class="notice-banner">
-
-        ⚠️ We couldn't precisely locate "{{ location }}".
-
-        Please try adding a city or state.
-
-    </div>
-
+    <div class="notice-banner">⚠️ We couldn't precisely locate "{{ location }}". Please try adding a city or state.</div>
     {% endif %}
-
-
-
-    <!-- =====================================================
-         MAIN GRID
-    ====================================================== -->
 
     <div class="row g-4">
 
-
-
-        <!-- =================================================
-             SAFETY SCORE
-        ================================================== -->
-
+        <!-- SAFETY SCORE -->
         <div class="col-md-4">
-
             <div class="card-glass text-center h-100">
+                <h6 class="mb-3" style="color:rgba(255,255,255,0.6);">SAFETY SCORE</h6>
 
-
-                <h6
-                    class="mb-3"
-                    style="color:rgba(255,255,255,0.6);"
-                >
-                    SAFETY SCORE
-                </h6>
-
-
-                <div
-                    class="score-circle {{ risk_class }} mb-3"
-                >
-
-                    <div>
-                        {{ score }}
-                    </div>
-
-                    <div style="font-size:0.8rem;">
-                        /100
-                    </div>
-
+                <div class="score-circle {{ risk_class }} mb-3">
+                    <div>{{ score }}</div>
+                    <div style="font-size:0.8rem;">/100</div>
                 </div>
-
-
-
-                <!-- Risk badge -->
 
                 <div class="mt-3">
-
-                    <span
-                        class="badge fs-6 px-3 py-2
-                        {% if risk_level == 'Low' %}
-                            bg-success
-
-                        {% elif risk_level == 'Medium' %}
-                            bg-warning text-dark
-
-                        {% else %}
-                            bg-danger
-
-                        {% endif %}"
-                    >
-
+                    <span class="badge fs-6 px-3 py-2
+                        {% if risk_level == 'Low' %}bg-success
+                        {% elif risk_level == 'Medium' %}bg-warning text-dark
+                        {% else %}bg-danger{% endif %}">
                         {{ risk_level }} Risk
-
                     </span>
-
                 </div>
 
+                <p class="mt-3" style="color:rgba(255,255,255,0.5); font-size:0.85rem;">{{ summary }}</p>
 
-
-                <!-- Summary -->
-
-                <p
-                    class="mt-3"
-                    style="
-                        color:rgba(255,255,255,0.5);
-                        font-size:0.85rem;
-                    "
-                >
-
-                    {{ summary }}
-
-                </p>
-
-
-
-                <!-- Historical risk score -->
-
-                <div
-                    style="
-                        margin-top:14px;
-                        padding:10px;
-                        background:rgba(255,255,255,0.04);
-                        border-radius:8px;
-                        font-size:0.78rem;
-                        color:rgba(255,255,255,0.45);
-                    "
-                >
-
-                    Historical risk score:
-
-                    <strong style="color:#fff;">
-                        {{ risk_score }}/100
-                    </strong>
-
+                <div style="margin-top:14px; padding:10px; background:rgba(255,255,255,0.04); border-radius:8px; font-size:0.78rem; color:rgba(255,255,255,0.45);">
+                    Historical risk score: <strong style="color:#fff;">{{ risk_score }}/100</strong>
                 </div>
 
-
-                <div
-                    style="
-                        margin-top:8px;
-                        font-size:0.72rem;
-                        color:rgba(255,255,255,0.3);
-                    "
-                >
-
-                    Lower risk score = lower historical crime risk
-
+                <div style="margin-top:8px; font-size:0.72rem; color:rgba(255,255,255,0.3);">
+                    City-level indicator, not a street-by-street guarantee
                 </div>
-
-
             </div>
-
         </div>
 
-
-
-        <!-- =================================================
-             CRIME STATISTICS
-        ================================================== -->
-
+        <!-- CRIME STATISTICS -->
         <div class="col-md-4">
-
             <div class="card-glass h-100">
-
-
-                <h6
-                    class="mb-3"
-                    style="color:rgba(255,255,255,0.6);"
-                >
-                    CRIME STATISTICS
-                </h6>
-
-
-
+                <h6 class="mb-3" style="color:rgba(255,255,255,0.6);">CRIME STATISTICS</h6>
                 <div class="row g-2">
+                    <div class="col-6"><div class="stat-card"><div class="stat-number">{{ stats.total_crimes }}</div><small style="color:rgba(255,255,255,0.5);">Total Crimes</small></div></div>
+                    <div class="col-6"><div class="stat-card"><div class="stat-number">{{ stats.violent_crimes }}</div><small style="color:rgba(255,255,255,0.5);">Violent Crimes</small></div></div>
+                    <div class="col-6"><div class="stat-card"><div class="stat-number">{{ stats.theft }}</div><small style="color:rgba(255,255,255,0.5);">Theft</small></div></div>
+                    <div class="col-6"><div class="stat-card"><div class="stat-number">{{ stats.robbery }}</div><small style="color:rgba(255,255,255,0.5);">Robbery</small></div></div>
+                    <div class="col-6"><div class="stat-card"><div class="stat-number">{{ stats.vehicle }}</div><small style="color:rgba(255,255,255,0.5);">Vehicle Theft</small></div></div>
+                    <div class="col-6"><div class="stat-card"><div class="stat-number">{{ stats.property_crimes }}</div><small style="color:rgba(255,255,255,0.5);">Property Crimes</small></div></div>
+                </div>
+            </div>
+        </div>
 
+        <!-- CRIME BREAKDOWN CHART -->
+        <div class="col-md-4">
+            <div class="card-glass h-100">
+                <h6 class="mb-3" style="color:rgba(255,255,255,0.6);">CRIME BREAKDOWN</h6>
+                <canvas id="crimeChart"></canvas>
+            </div>
+        </div>
 
+        <!-- WHY IS THIS AREA RISKY -->
+        <div class="col-md-6">
+            <div class="card-glass h-100">
+                <h6 class="mb-1" style="color:rgba(255,255,255,0.6);">🧠 WHY THIS SCORE?</h6>
+                <small style="color:rgba(255,255,255,0.3); font-size:0.78rem;">Share of historical incidents by category, {{ time_period }} in {{ city }}</small>
 
-                    <!-- Total crimes -->
-
-                    <div class="col-6">
-
-                        <div class="stat-card">
-
-                            <div class="stat-number">
-                                {{ stats.total_crimes }}
-                            </div>
-
-                            <small style="color:rgba(255,255,255,0.5);">
-                                Total Crimes
-                            </small>
-
+                <div class="mt-3">
+                    {% for item in breakdown %}
+                    <div class="why-row">
+                        <div style="width: 120px; color: rgba(255,255,255,0.7);">{{ item.label }}</div>
+                        <div class="why-bar-track">
+                            <div class="why-bar-fill" style="width: {{ item.pct }}%;"></div>
                         </div>
+                        <div style="width: 70px; text-align:right; color: rgba(255,255,255,0.5);">
+                            {{ item.count }} ({{ item.pct }}%)
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
 
+        <!-- BEST TIME TO TRAVEL -->
+        <div class="col-md-6">
+            <div class="card-glass h-100">
+                <h6 class="mb-1" style="color:rgba(255,255,255,0.6);">🕐 BEST TIME TO TRAVEL</h6>
+                <small style="color:rgba(255,255,255,0.3); font-size:0.78rem;">Historical risk score by time period in {{ city }}</small>
+
+                {% if best_time_rows %}
+                <table class="time-table mt-2">
+                    <tbody>
+                        {% for row in best_time_rows %}
+                        <tr data-period="{{ row.period }}" class="{% if row.is_current %}current-row{% endif %} {% if best_time and row.period == best_time.period %}best-row{% endif %}">
+                            <td>
+                                {{ row.period }}
+                                {% if row.is_current %}<span style="font-size:0.7rem; color:#45aaf2;">(now)</span>{% endif %}
+                            </td>
+                            <td>{{ row.risk_level }}</td>
+                            <td style="text-align:right;">{{ row.risk_score }}/100</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                {% if best_time %}
+                <div style="margin-top:10px; padding:10px; background:rgba(40,167,69,0.08); border:1px solid rgba(40,167,69,0.3); border-radius:8px; font-size:0.82rem;">
+                    🟢 <strong>{{ best_time.period }}</strong> historically has the lowest risk score ({{ best_time.risk_score }}/100) for {{ city }}.
+                </div>
+                {% endif %}
+
+                <!-- INTERACTIVE TIME-OF-DAY SLIDER -->
+                <div style="margin-top:18px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08);">
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <small style="color:rgba(255,255,255,0.5); font-size:0.78rem;">
+                            🕐 Drag to preview risk at a different hour
+                        </small>
+                        <button type="button" class="reset-time-btn" id="resetTimeBtn">Reset to now</button>
                     </div>
 
+                    <input type="range" min="0" max="23" step="1" id="timeSlider">
 
-
-                    <!-- Violent crimes -->
-
-                    <div class="col-6">
-
-                        <div class="stat-card">
-
-                            <div class="stat-number">
-                                {{ stats.violent_crimes }}
-                            </div>
-
-                            <small style="color:rgba(255,255,255,0.5);">
-                                Violent Crimes
-                            </small>
-
-                        </div>
-
+                    <div class="d-flex justify-content-between mt-1" style="font-size:0.65rem; color:rgba(255,255,255,0.3);">
+                        <span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>11 PM</span>
                     </div>
 
-
-
-                    <!-- Theft -->
-
-                    <div class="col-6">
-
-                        <div class="stat-card">
-
-                            <div class="stat-number">
-                                {{ stats.theft }}
-                            </div>
-
-                            <small style="color:rgba(255,255,255,0.5);">
-                                Theft
-                            </small>
-
+                    <div class="d-flex align-items-center gap-3 mt-3 p-2" style="background:rgba(255,255,255,0.04); border-radius:10px;">
+                        <div id="previewScore" style="font-size:1.6rem; font-weight:bold; min-width:50px; text-align:center;">--</div>
+                        <div>
+                            <div id="previewLabel" style="font-weight:600; font-size:0.9rem;">--</div>
+                            <div id="previewTime" style="font-size:0.75rem; color:rgba(255,255,255,0.45);">--</div>
                         </div>
-
                     </div>
 
+                    <div id="previewSummary" style="margin-top:8px; font-size:0.78rem; color:rgba(255,255,255,0.5);"></div>
 
-
-                    <!-- Robbery -->
-
-                    <div class="col-6">
-
-                        <div class="stat-card">
-
-                            <div class="stat-number">
-                                {{ stats.robbery }}
-                            </div>
-
-                            <small style="color:rgba(255,255,255,0.5);">
-                                Robbery
-                            </small>
-
-                        </div>
-
+                    <div style="margin-top:6px; font-size:0.66rem; color:rgba(255,255,255,0.3);">
+                        The map and route color above update live as you drag — try it.
                     </div>
-
-
-
-                    <!-- Vehicle theft -->
-
-                    <div class="col-6">
-
-                        <div class="stat-card">
-
-                            <div class="stat-number">
-                                {{ stats.vehicle }}
-                            </div>
-
-                            <small style="color:rgba(255,255,255,0.5);">
-                                Vehicle Theft
-                            </small>
-
-                        </div>
-
-                    </div>
-
-
-
-                    <!-- Property crimes -->
-
-                    <div class="col-6">
-
-                        <div class="stat-card">
-
-                            <div class="stat-number">
-                                {{ stats.property_crimes }}
-                            </div>
-
-                            <small style="color:rgba(255,255,255,0.5);">
-                                Property Crimes
-                            </small>
-
-                        </div>
-
-                    </div>
-
-
-
                 </div>
 
+                {% else %}
+                <p style="color:rgba(255,255,255,0.4); font-size:0.85rem; margin-top:10px;">
+                    Not enough data to compare time periods for this city.
+                </p>
+                {% endif %}
             </div>
-
         </div>
 
-
-
-        <!-- =================================================
-             CRIME BREAKDOWN CHART
-        ================================================== -->
-
-        <div class="col-md-4">
-
-            <div class="card-glass h-100">
-
-
-                <h6
-                    class="mb-3"
-                    style="color:rgba(255,255,255,0.6);"
-                >
-                    CRIME BREAKDOWN
-                </h6>
-
-
-                <canvas id="crimeChart"></canvas>
-
-
-            </div>
-
-        </div>
-
-
-
-        <!-- =================================================
-             SAFE ROUTE FINDER
-        ================================================== -->
-
+        <!-- ML INSIGHT -->
+        {% if ml_insight %}
         <div class="col-12">
-
             <div class="card-glass">
-
-
-                <h6
-                    class="mb-1"
-                    style="color:rgba(255,255,255,0.6);"
-                >
-                    SAFE ROUTE FINDER
-                </h6>
-
-
-                <small
-                    style="
-                        color:rgba(255,255,255,0.3);
-                        font-size:0.78rem;
-                    "
-                >
-
-                    Select a destination to draw a
-                    colour-coded walking route
-
+                <span class="ml-badge">🤖 ML MODEL</span>
+                <h6 class="mb-2" style="color:rgba(255,255,255,0.6);">MACHINE LEARNING INSIGHT</h6>
+                <p style="font-size:0.9rem; color:rgba(255,255,255,0.75); margin-bottom:6px;">
+                    A Random Forest classifier trained on historical incident records estimates a
+                    <strong style="color:#e94560;">{{ ml_insight.violent_probability }}%</strong>
+                    likelihood that a crime occurring in {{ city }} at this hour and day of week is violent in nature.
+                </p>
+                <small style="color:rgba(255,255,255,0.4); font-size:0.78rem;">
+                    Most influential factor in the model: <strong>{{ ml_insight.top_feature }}</strong>.
+                    This is a separate, genuinely trained model — distinct from the statistical risk score above —
+                    supplementing it rather than replacing it.
                 </small>
+            </div>
+        </div>
+        {% endif %}
 
-
-
-                <!-- Destination buttons -->
+        <!-- SAFE ROUTE FINDER -->
+        <div class="col-12">
+            <div class="card-glass">
+                <h6 class="mb-1" style="color:rgba(255,255,255,0.6);">ROUTE FINDER</h6>
+                <small style="color:rgba(255,255,255,0.3); font-size:0.78rem;">
+                    Real walking routes via OSRM, to the nearest real hospital / police station / transit stop.
+                </small>
 
                 <div class="row g-2 mt-2 mb-3">
 
-
-
-                    <!-- Home -->
-
                     <div class="col-md-4">
-
-                        <button
-                            class="route-btn"
-                            id="btn-home"
-                            onclick="fetchRoute('home')"
-                        >
-
-                            <span class="dest-icon">
-                                🏠
-                            </span>
-
-
+                        <button class="route-btn" id="btn-hospital" onclick="fetchRoute('hospital')">
+                            <span class="dest-icon">{{ destinations.hospital.emoji }}</span>
                             <div>
-
-                                <div class="dest-label">
-                                    Route to Home
-                                </div>
-
-                                <div
-                                    class="dest-eta"
-                                    id="eta-home"
-                                >
-                                    Click to calculate
-                                </div>
-
+                                <div class="dest-label">Nearest Hospital</div>
+                                <div class="dest-eta" id="eta-hospital">Click to calculate</div>
+                                {% if not destinations.hospital.found %}<div class="dest-approx">⚠️ approximate</div>{% endif %}
                             </div>
-
-
-                            <span
-                                class="dest-badge"
-                                id="badge-home"
-                            ></span>
-
+                            <span class="dest-badge" id="badge-hospital"></span>
                         </button>
-
                     </div>
 
-
-
-                    <!-- Hospital -->
-
                     <div class="col-md-4">
-
-                        <button
-                            class="route-btn"
-                            id="btn-hospital"
-                            onclick="fetchRoute('hospital')"
-                        >
-
-                            <span class="dest-icon">
-                                🏥
-                            </span>
-
-
+                        <button class="route-btn" id="btn-police" onclick="fetchRoute('police')">
+                            <span class="dest-icon">{{ destinations.police.emoji }}</span>
                             <div>
-
-                                <div class="dest-label">
-                                    Nearest Hospital
-                                </div>
-
-                                <div
-                                    class="dest-eta"
-                                    id="eta-hospital"
-                                >
-                                    Click to calculate
-                                </div>
-
+                                <div class="dest-label">Nearest Police Station</div>
+                                <div class="dest-eta" id="eta-police">Click to calculate</div>
+                                {% if not destinations.police.found %}<div class="dest-approx">⚠️ approximate</div>{% endif %}
                             </div>
-
-
-                            <span
-                                class="dest-badge"
-                                id="badge-hospital"
-                            ></span>
-
+                            <span class="dest-badge" id="badge-police"></span>
                         </button>
-
                     </div>
 
-
-
-                    <!-- Police -->
-
                     <div class="col-md-4">
-
-                        <button
-                            class="route-btn"
-                            id="btn-police"
-                            onclick="fetchRoute('police')"
-                        >
-
-                            <span class="dest-icon">
-                                🚔
-                            </span>
-
-
+                        <button class="route-btn" id="btn-transit" onclick="fetchRoute('transit')">
+                            <span class="dest-icon">{{ destinations.transit.emoji }}</span>
                             <div>
-
-                                <div class="dest-label">
-                                    Nearest Police Station
-                                </div>
-
-                                <div
-                                    class="dest-eta"
-                                    id="eta-police"
-                                >
-                                    Click to calculate
-                                </div>
-
+                                <div class="dest-label">Nearest Transit Stop</div>
+                                <div class="dest-eta" id="eta-transit">Click to calculate</div>
+                                {% if not destinations.transit.found %}<div class="dest-approx">⚠️ approximate</div>{% endif %}
                             </div>
-
-
-                            <span
-                                class="dest-badge"
-                                id="badge-police"
-                            ></span>
-
+                            <span class="dest-badge" id="badge-transit"></span>
                         </button>
-
                     </div>
-
 
                 </div>
-
-
-
-                <!-- Map -->
 
                 <div id="map"></div>
 
-
-
-                <!-- Route status -->
-
-                <div
-                    class="route-status"
-                    id="routeStatus"
-                >
-                    Select a destination above to draw a route.
-                </div>
-
-
-
-                <!-- Legend -->
+                <div class="route-status" id="routeStatus">Select a destination above to draw a route.</div>
 
                 <div class="legend-row">
-
-                    <div class="legend-item">
-
-                        <div
-                            class="legend-line"
-                            style="background:#28a745;"
-                        ></div>
-
-                        Safe path
-
-                    </div>
-
-
-                    <div class="legend-item">
-
-                        <div
-                            class="legend-line"
-                            style="background:#ffc107;"
-                        ></div>
-
-                        Moderate caution
-
-                    </div>
-
-
-                    <div class="legend-item">
-
-                        <div
-                            class="legend-line"
-                            style="background:#dc3545;"
-                        ></div>
-
-                        Avoid if possible
-
-                    </div>
-
-
-                    <div class="legend-item">
-
-                        <div
-                            class="legend-line"
-                            style="background:#45aaf2;"
-                        ></div>
-
-                        Your location
-
-                    </div>
-
+                    <div class="legend-item"><div class="legend-line" id="legend-route-line" style="background:{{ map_color }};"></div> Route (city historical risk: <span id="legend-risk-label">{{ risk_level }}</span>)</div>
+                    <div class="legend-item"><div class="legend-line" style="background:#45aaf2;"></div> Your location</div>
                 </div>
 
-
+                <div style="margin-top:10px; font-size:0.75rem; color:rgba(255,255,255,0.35);">
+                    ℹ️ The route line uses one color reflecting {{ city }}'s overall historical risk for {{ time_period }}.
+                    We do not claim any individual street segment is safer than another — our dataset has no
+                    incident-level coordinates to support that.
+                </div>
             </div>
-
         </div>
 
-
-
-        <!-- =================================================
-             SAFETY TIPS
-        ================================================== -->
-
+        <!-- SAFETY TIPS -->
         <div class="col-12">
-
             <div class="card-glass">
-
-
-                <h6
-                    class="mb-3"
-                    style="color:rgba(255,255,255,0.6);"
-                >
-                    SAFETY TIPS
-                </h6>
-
-
+                <h6 class="mb-3" style="color:rgba(255,255,255,0.6);">SAFETY TIPS</h6>
                 <div class="row g-2">
-
-
                     {% for tip in tips %}
-
-                    <div class="col-md-6">
-
-                        <div class="tip-item">
-
-                            <small>
-                                {{ tip }}
-                            </small>
-
-                        </div>
-
-                    </div>
-
+                    <div class="col-md-6"><div class="tip-item"><small>{{ tip }}</small></div></div>
                     {% endfor %}
-
-
                 </div>
-
             </div>
-
         </div>
-
 
     </div>
 
-
-
-    <!-- =====================================================
-         DISCLAIMER
-    ====================================================== -->
-
     <p class="disclaimer">
-
-        SafePath AI is a student prototype.
-
-        Risk scores are calculated from the historical
-        crime dataset used by this project and are intended
-        as a city-level risk indicator.
-
-        They are not a guarantee of personal safety and should
-        not be interpreted as official real-time crime predictions.
-
+        SafePath AI is a student prototype. Risk scores are calculated from a historical crime dataset
+        and represent city-level, time-of-day patterns — not street-level or real-time crime prediction.
+        Routes are real walking directions (OSRM); the route color reflects the city's overall historical
+        risk level, not a per-street risk assessment. This tool is not a guarantee of personal safety.
     </p>
-
 
 </div>
 
-
-
-<!-- =========================================================
-     JAVASCRIPT
-========================================================= -->
-
 <script>
 
-
-/* ============================================================
-   REAL CRIME BREAKDOWN CHART
-============================================================ */
-
-const ctx = document
-    .getElementById('crimeChart')
-    .getContext('2d');
-
+const ctx = document.getElementById('crimeChart').getContext('2d');
 
 new Chart(ctx, {
-
     type: 'doughnut',
-
-
     data: {
-
-        labels: [
-
-            'Theft',
-
-            'Robbery',
-
-            'Vehicle Theft',
-
-            'Violent Crime',
-
-            'Property Crime',
-
-            'Domestic Violence'
-
-        ],
-
-
+        labels: ['Theft', 'Robbery', 'Vehicle Theft', 'Violent Crime', 'Property Crime', 'Domestic Violence'],
         datasets: [{
-
             data: [
-
-                {{ stats.theft }},
-
-                {{ stats.robbery }},
-
-                {{ stats.vehicle }},
-
-                {{ stats.violent_crimes }},
-
-                {{ stats.property_crimes }},
-
-                {{ stats.domestic_violence }}
-
+                {{ stats.theft }}, {{ stats.robbery }}, {{ stats.vehicle }},
+                {{ stats.violent_crimes }}, {{ stats.property_crimes }}, {{ stats.domestic_violence }}
             ],
-
-
-            backgroundColor: [
-
-                '#e94560',
-
-                '#f7b731',
-
-                '#45aaf2',
-
-                '#dc3545',
-
-                '#a55eea',
-
-                '#20bf6b'
-
-            ],
-
-
+            backgroundColor: ['#e94560', '#f7b731', '#45aaf2', '#dc3545', '#a55eea', '#20bf6b'],
             borderWidth: 0
-
         }]
-
     },
-
-
     options: {
-
         responsive: true,
-
-
-        plugins: {
-
-            legend: {
-
-                labels: {
-
-                    color: 'rgba(255,255,255,0.6)'
-
-                }
-
-            }
-
-        }
-
+        plugins: { legend: { labels: { color: 'rgba(255,255,255,0.6)' } } }
     }
-
 });
 
-
-
-/* ============================================================
-   MAP SETUP
-============================================================ */
-
 const CENTER_LAT = {{ lat }};
-
 const CENTER_LNG = {{ lng }};
+let ROUTE_COLOR = "{{ map_color }}";
 
+const C = { pin: '#45aaf2' };
 
-/*
-    Safety score:
+const map = L.map('map').setView([CENTER_LAT, CENTER_LNG], 14);
 
-    Higher = safer
-*/
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19
+}).addTo(map);
 
-const RISK_SCORE = {{ score }};
-
-
-const C = {
-
-    safe: '#28a745',
-
-    moderate: '#ffc107',
-
-    danger: '#dc3545',
-
-    pin: '#45aaf2'
-
-};
-
-
-
-/* Create map */
-
-const map = L
-    .map('map')
-    .setView(
-        [CENTER_LAT, CENTER_LNG],
-        14
-    );
-
-
-
-/* Dark map tiles */
-
-
-L.tileLayer(
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {
-        attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-
-        maxZoom: 19
-    }
-).addTo(map);
-
-
-
-
-/* ============================================================
-   RISK ZONE
-============================================================ */
-
-L.circle(
-    [CENTER_LAT, CENTER_LNG],
-    {
-
-        color:
-            '{{ map_color }}',
-
-        fillColor:
-            '{{ map_color }}',
-
-        fillOpacity:
-            0.15,
-
-        radius:
-            600,
-
-        weight:
-            1.5,
-
-        dashArray:
-            '6 4'
-
-    }
-
-).addTo(map);
-
-
-
-/* ============================================================
-   MAP PIN
-============================================================ */
+const riskCircle = L.circle([CENTER_LAT, CENTER_LNG], {
+    color: ROUTE_COLOR, fillColor: ROUTE_COLOR, fillOpacity: 0.15,
+    radius: 600, weight: 1.5, dashArray: '6 4'
+}).addTo(map);
 
 function makePin(emoji, bg) {
-
     return L.divIcon({
-
-        html: `
-
-            <div style="
-                background:${bg};
-                width:38px;
-                height:38px;
-                border-radius:50%;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                font-size:1.1rem;
-                border:2px solid #fff;
-                box-shadow:0 2px 10px rgba(0,0,0,.6);
-            ">
-
-                ${emoji}
-
-            </div>
-
-        `,
-
+        html: `<div style="background:${bg}; width:38px; height:38px; border-radius:50%;
+                display:flex; align-items:center; justify-content:center; font-size:1.1rem;
+                border:2px solid #fff; box-shadow:0 2px 10px rgba(0,0,0,.6);">${emoji}</div>`,
         className: '',
-
-        iconSize:
-            [38,38],
-
-        iconAnchor:
-            [19,19]
-
+        iconSize: [38, 38],
+        iconAnchor: [19, 19]
     });
-
 }
 
+L.marker([CENTER_LAT, CENTER_LNG], { icon: makePin('📍', C.pin) })
+    .addTo(map)
+    .bindPopup('<b>Your Location</b>');
 
-
-/* User marker */
-
-L.marker(
-
-    [CENTER_LAT, CENTER_LNG],
-
-    {
-        icon:
-            makePin(
-                '📍',
-                C.pin
-            )
-    }
-
-)
-
-.addTo(map)
-
-.bindPopup(
-    '<b>Your Location</b>'
-);
-
-
-
-/* ============================================================
-   CURRENT DESTINATIONS
-============================================================ */
-
-/*
-    NOTE:
-
-    These are still temporary destinations.
-
-    We will replace these with real nearby
-    hospitals and police stations later.
-*/
-
+// Real destinations, computed server-side via the Overpass API —
+// no hardcoded lat/lng offsets.
 const DESTS = {
-
-    home: {
-
-        lat:
-            CENTER_LAT + 0.018,
-
-        lng:
-            CENTER_LNG - 0.012,
-
-        label:
-            'Home',
-
-        emoji:
-            '🏠'
-
-    },
-
-
     hospital: {
-
-        lat:
-            CENTER_LAT - 0.022,
-
-        lng:
-            CENTER_LNG + 0.015,
-
-        label:
-            'City Hospital',
-
-        emoji:
-            '🏥'
-
+        lat: {{ destinations.hospital.lat }},
+        lng: {{ destinations.hospital.lng }},
+        label: {{ destinations.hospital.label | tojson }},
+        emoji: {{ destinations.hospital.emoji | tojson }}
     },
-
-
     police: {
-
-        lat:
-            CENTER_LAT + 0.009,
-
-        lng:
-            CENTER_LNG + 0.021,
-
-        label:
-            'Police Station',
-
-        emoji:
-            '🚔'
-
+        lat: {{ destinations.police.lat }},
+        lng: {{ destinations.police.lng }},
+        label: {{ destinations.police.label | tojson }},
+        emoji: {{ destinations.police.emoji | tojson }}
+    },
+    transit: {
+        lat: {{ destinations.transit.lat }},
+        lng: {{ destinations.transit.lng }},
+        label: {{ destinations.transit.label | tojson }},
+        emoji: {{ destinations.transit.emoji | tojson }}
     }
-
 };
 
-
-
-/* ============================================================
-   ROUTE VARIABLES
-============================================================ */
-
 let routeLayer = null;
-
 let destMarker = null;
-
-
-
-/* ============================================================
-   ROUTE COLOUR
-============================================================ */
-
-function segColor(i, total) {
-
-    const t =
-        i / total;
-
-
-    /*
-        Temporary visual variation.
-
-        This will eventually be replaced with
-        actual route-risk calculations.
-    */
-
-    const local =
-        RISK_SCORE +
-        Math.sin(t * Math.PI) *
-        18 *
-        (1 - RISK_SCORE / 100);
-
-
-    if (local >= 65)
-
-        return C.safe;
-
-
-    if (local >= 40)
-
-        return C.moderate;
-
-
-    return C.danger;
-
-}
-
-
-
-/* ============================================================
-   FETCH WALKING ROUTE
-============================================================ */
 
 async function fetchRoute(type) {
 
+    const dest = DESTS[type];
+    const btn = document.getElementById(`btn-${type}`);
+    const eta = document.getElementById(`eta-${type}`);
+    const badge = document.getElementById(`badge-${type}`);
 
-    const dest =
-        DESTS[type];
-
-
-    const btn =
-        document.getElementById(
-            `btn-${type}`
-        );
-
-
-    const eta =
-        document.getElementById(
-            `eta-${type}`
-        );
-
-
-    const badge =
-        document.getElementById(
-            `badge-${type}`
-        );
-
-
-    /* Active button */
-
-    document
-        .querySelectorAll('.route-btn')
-        .forEach(
-            b => b.classList.remove('active')
-        );
-
-
+    document.querySelectorAll('.route-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
+    setStatus('loading', '⏳ Calculating route…');
+    eta.textContent = 'Fetching…';
 
-    /* Loading */
-
-    setStatus(
-        'loading',
-        '⏳ Calculating route…'
-    );
-
-
-    eta.textContent =
-        'Fetching…';
-
-
-
-    /* Remove old route */
-
-    if (routeLayer) {
-
-        map.removeLayer(
-            routeLayer
-        );
-
-        routeLayer = null;
-
-    }
-
-
-    /* Remove old marker */
-
-    if (destMarker) {
-
-        map.removeLayer(
-            destMarker
-        );
-
-        destMarker = null;
-
-    }
-
-
+    if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+    if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
 
     try {
 
-
-        /* ====================================================
-           OSRM WALKING ROUTE
-        ==================================================== */
-
-        const url =
-
-            `https://router.project-osrm.org/route/v1/foot/` +
-
-            `${CENTER_LNG},${CENTER_LAT};` +
-
-            `${dest.lng},${dest.lat}` +
-
+        const url = `https://router.project-osrm.org/route/v1/foot/` +
+            `${CENTER_LNG},${CENTER_LAT};${dest.lng},${dest.lat}` +
             `?overview=full&geometries=geojson`;
 
+        const res = await fetch(url);
+        const json = await res.json();
 
-        const res =
-            await fetch(url);
+        if (!json.routes?.length) throw new Error('No route found');
 
+        const route = json.routes[0];
+        const coords = route.geometry.coordinates;
+        const mins = Math.round(route.duration / 60);
+        const km = (route.distance / 1000).toFixed(1);
 
-        const json =
-            await res.json();
+        // Single honest color for the whole route — reflects the
+        // city's overall historical risk level, not fabricated
+        // per-segment variation.
+        routeLayer = L.polyline(
+            coords.map(([lng, lat]) => [lat, lng]),
+            { color: ROUTE_COLOR, weight: 5, opacity: 0.9, lineJoin: 'round', lineCap: 'round' }
+        ).addTo(map);
 
-
-        if (!json.routes?.length)
-
-            throw new Error(
-                'No route found'
-            );
-
-
-        const route =
-            json.routes[0];
-
-
-        const coords =
-            route.geometry.coordinates;
-
-
-        const mins =
-            Math.round(
-                route.duration / 60
-            );
-
-
-        const km =
-            (
-                route.distance / 1000
-            ).toFixed(1);
-
-
-
-        /* ====================================================
-           DRAW ROUTE
-        ==================================================== */
-
-        routeLayer =
-            L.layerGroup().addTo(map);
-
-
-        const step =
-            Math.max(
-                1,
-                Math.floor(
-                    coords.length / 14
-                )
-            );
-
-
-
-        for (
-            let i = 0;
-            i < coords.length - 1;
-            i += step
-        ) {
-
-
-            const slice =
-                coords
-                    .slice(
-                        i,
-                        i + step + 1
-                    )
-                    .map(
-                        ([lng, lat]) =>
-                            [lat, lng]
-                    );
-
-
-            L.polyline(
-
-                slice,
-
-                {
-
-                    color:
-                        segColor(
-                            i,
-                            coords.length
-                        ),
-
-                    weight:
-                        5,
-
-                    opacity:
-                        0.9,
-
-                    lineJoin:
-                        'round',
-
-                    lineCap:
-                        'round'
-
-                }
-
-            ).addTo(
-                routeLayer
-            );
-
-        }
-
-
-
-        /* ====================================================
-           DESTINATION MARKER
-        ==================================================== */
-
-        destMarker =
-
-            L.marker(
-
-                [dest.lat, dest.lng],
-
-                {
-
-                    icon:
-                        makePin(
-                            dest.emoji,
-                            '#1e2535'
-                        )
-
-                }
-
-            )
-
+        destMarker = L.marker([dest.lat, dest.lng], { icon: makePin(dest.emoji, '#1e2535') })
             .addTo(map)
-
-            .bindPopup(
-
-                `<b>${dest.label}</b><br>` +
-
-                `${km} km · ${mins} min walk`
-
-            )
-
+            .bindPopup(`<b>${dest.label}</b><br>${km} km · ${mins} min walk`)
             .openPopup();
 
+        map.fitBounds(L.latLngBounds(coords.map(([lng, lat]) => [lat, lng])).pad(0.12));
 
+        eta.textContent = `${mins} min walk · ${km} km`;
 
-        /* ====================================================
-           FIT MAP TO ROUTE
-        ==================================================== */
+        badge.textContent = "Route";
+        badge.style.cssText = `display:inline-block; background:${ROUTE_COLOR}22; color:${ROUTE_COLOR}; border:1px solid ${ROUTE_COLOR}55;`;
 
-        map.fitBounds(
+        setStatus('', `✅ Route to ${dest.label} — ${mins} min (${km} km)`);
 
-            L.latLngBounds(
+    } catch (err) {
 
-                coords.map(
-                    ([lng, lat]) =>
-                        [lat, lng]
-                )
-
-            ).pad(0.12)
-
-        );
-
-
-
-        /* ETA */
-
-        eta.textContent =
-
-            `${mins} min walk · ${km} km`;
-
-
-
-        /* ====================================================
-           ROUTE RISK BADGE
-        ==================================================== */
-
-        const safeLabel =
-
-            RISK_SCORE >= 70
-
-                ? 'Safe'
-
-                : RISK_SCORE >= 45
-
-                    ? 'Moderate'
-
-                    : 'Risky';
-
-
-
-        const safeColor =
-
-            RISK_SCORE >= 70
-
-                ? C.safe
-
-                : RISK_SCORE >= 45
-
-                    ? C.moderate
-
-                    : C.danger;
-
-
-
-        badge.textContent =
-            safeLabel;
-
-
-        badge.style.cssText =
-
-            `display:inline-block;` +
-
-            `background:${safeColor}22;` +
-
-            `color:${safeColor};` +
-
-            `border:1px solid ${safeColor}55;`;
-
-
-
-        setStatus(
-
-            '',
-
-            `✅ Route to ${dest.label} — ` +
-
-            `${mins} min (${km} km)`
-
-        );
-
-
-    }
-
-
-    catch (err) {
-
-
-        setStatus(
-
-            'error',
-
-            '⚠️ Could not fetch route. Check your connection.'
-
-        );
-
-
-        eta.textContent =
-            'Error – try again';
-
-
+        setStatus('error', '⚠️ Could not fetch route. Check your connection.');
+        eta.textContent = 'Error – try again';
         console.error(err);
-
     }
-
 }
 
-
+function setStatus(cls, msg) {
+    const el = document.getElementById('routeStatus');
+    el.className = `route-status ${cls}`;
+    el.textContent = msg;
+}
 
 /* ============================================================
-   STATUS HELPER
+   INTERACTIVE TIME-OF-DAY SLIDER
+   Every value shown here is real precomputed data from the
+   backend (PERIODS_DATA) for one of the four time periods —
+   nothing is interpolated or invented between hours. Moving
+   the slider just picks which real period's numbers to show.
 ============================================================ */
 
-function setStatus(
-    cls,
-    msg
-) {
+const PERIODS_DATA = {{ periods_snapshot | tojson }};
+const CURRENT_HOUR = {{ current_hour }};
 
-    const el =
-        document.getElementById(
-            'routeStatus'
-        );
-
-
-    el.className =
-        `route-status ${cls}`;
-
-
-    el.textContent =
-        msg;
-
+function hourToPeriod(hour) {
+    if (hour >= 5 && hour < 12) return "Morning";
+    if (hour >= 12 && hour < 17) return "Afternoon";
+    if (hour >= 17 && hour < 21) return "Evening";
+    return "Night";
 }
 
+function formatHour(hour) {
+    let h12 = hour % 12;
+    if (h12 === 0) h12 = 12;
+    return `${h12}:00 ${hour < 12 ? "AM" : "PM"}`;
+}
+
+const timeSlider = document.getElementById('timeSlider');
+const previewScore = document.getElementById('previewScore');
+const previewLabel = document.getElementById('previewLabel');
+const previewTime = document.getElementById('previewTime');
+const previewSummary = document.getElementById('previewSummary');
+const resetTimeBtn = document.getElementById('resetTimeBtn');
+const legendRiskLabel = document.getElementById('legend-risk-label');
+const legendRouteLine = document.getElementById('legend-route-line');
+
+function applyTimePreview(hour) {
+
+    const period = hourToPeriod(hour);
+    const snap = PERIODS_DATA[period];
+
+    previewTime.textContent = `${formatHour(hour)} · ${period}`;
+
+    if (!snap) {
+        previewScore.textContent = '--';
+        previewLabel.textContent = 'No data for this period';
+        previewSummary.textContent = '';
+        return;
+    }
+
+    previewScore.textContent = snap.score;
+    previewScore.style.color = snap.map_color;
+    previewLabel.textContent = `${snap.risk_level} Risk · ${snap.risk_score}/100`;
+    previewSummary.textContent = snap.summary;
+
+    // Recolor the risk circle + any drawn route to match this period
+    riskCircle.setStyle({ color: snap.map_color, fillColor: snap.map_color });
+    ROUTE_COLOR = snap.map_color;
+
+    if (routeLayer) {
+        routeLayer.setStyle({ color: snap.map_color });
+    }
+
+    if (legendRouteLine) legendRouteLine.style.background = snap.map_color;
+    if (legendRiskLabel) legendRiskLabel.textContent = snap.risk_level;
+
+    document.querySelectorAll('.time-table tr[data-period]').forEach(row => {
+        row.classList.toggle('selected-row', row.dataset.period === period);
+    });
+}
+
+if (timeSlider) {
+
+    timeSlider.addEventListener('input', (e) => {
+        applyTimePreview(parseInt(e.target.value, 10));
+    });
+
+    resetTimeBtn.addEventListener('click', () => {
+        timeSlider.value = CURRENT_HOUR;
+        applyTimePreview(CURRENT_HOUR);
+    });
+
+    timeSlider.value = CURRENT_HOUR;
+    applyTimePreview(CURRENT_HOUR);
+}
 
 </script>
-
 
 </body>
 </html>
