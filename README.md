@@ -1,101 +1,99 @@
-# SafePath AI
+# 🛡️ SafePath AI
 
-A crime-risk-aware navigation web app: geocodes a location, shows historical
-city-level crime risk for the current time period, explains *why* that score
-looks the way it does, compares risk across times of day, gives a small
-genuine ML prediction, and draws a real walking route to the nearest real
-hospital / police station / transit stop.
+A crime-risk-aware travel assistant. Enter a place in India and get:
 
-## What changed in this pass
+- a **0–100 safety score** (animated ring) built from a real historical crime dataset
+- **exactly why** — the 60 % frequency + 40 % severity recipe, and what makes this time of day different from the rest of the day
+- the **best time to travel**, plus a **time-of-day slider** that recolours the map live
+- a **machine-learning insight** — a Random Forest's hour-by-hour estimate, shown with its honest accuracy numbers
+- **real nearby hospital / police station / transit stop** (OpenStreetMap) with real **walking routes** (OSRM)
+- a personal **safety checklist** and **emergency numbers**
+- a **printable report**, a shareable **link**, and **recent searches** (saved only in the visitor's browser)
 
-1. **Backend ↔ template mismatch fixed.** `result.html` now uses the exact
-   field names `app.py` sends (`total_crimes`, `violent_crimes`, `theft`,
-   `robbery`, `vehicle`, `property_crimes`, `domestic_violence`).
-2. **Route coloring is now honest.** The old code faked a sine-wave color
-   gradient along the route to *look* like street-level risk data. That's
-   gone. The route is now a single color tied to the city's actual
-   historical risk level, and the UI says so explicitly.
-3. **Real hospital / police / transit lookups.** The old hardcoded lat/lng
-   offsets (`CENTER_LAT + 0.018`, etc.) are replaced with live queries to
-   OpenStreetMap's Overpass API, picking the actual nearest match by
-   haversine distance. If a live lookup fails, the UI clearly marks the
-   point as approximate — it never silently shows a fake point as real.
-4. **"Why is this area risky?"** — a ranked, percentage breakdown of the
-   crime categories behind the score, built from data you already have.
-5. **"Best time to travel"** — compares all four time periods for the same
-   city and highlights the historically lowest-risk one.
-6. **A real ML component** (`train_model.py`) — a Random Forest classifier
-   trained on the raw per-incident data (not the aggregated summary) to
-   estimate the probability a crime at a given city/hour/day/month is
-   violent. This is a separate, genuinely trained model, clearly described
-   as supplementing — not replacing — the statistical risk score.
-7. **Fixed `requirements.txt`** — it was missing `pandas` entirely, which
-   would have crashed the app on Render. Added `pandas`, `scikit-learn`,
-   `joblib`.
+Everything on screen comes from the dataset, the trained model, or OpenStreetMap. Nothing is invented — and where the data can't support a claim (street-level risk), the app says so.
 
-## Project structure
+---
+
+## Project layout
 
 ```
 SafePath-AI/
-├── app.py                  # Flask app
-├── city_utils.py           # shared city-name normalization
-├── clean_kaggle.py         # raw Kaggle CSV -> cleaned_crime_data.csv
-├── explore_kaggle.py       # inspect the raw Kaggle CSV columns
-├── risk_engine.py          # cleaned data -> crime_risk_summary.csv (statistical model)
-├── train_model.py          # cleaned data -> ML model (Random Forest)
+├── app.py                  Flask app (routes, lookups, caching, fallbacks)
+├── city_utils.py           shared city-name normalisation (Bengaluru → bangalore …)
+├── clean_kaggle.py         raw Kaggle CSV  → cleaned_crime_data.csv
+├── risk_engine.py          cleaned data    → crime_risk_summary.csv   (statistical score)
+├── train_model.py          cleaned data    → model/*.joblib + metrics.json  (ML)
+├── explore_kaggle.py       optional: inspect the raw CSV's columns
 ├── requirements.txt
-├── render.yaml
-├── templates/
-│   ├── index.html
-│   └── result.html
-├── crimes_indian_dataset/  # put your Kaggle CSV here (see below)
-└── model/                  # train_model.py writes the .joblib files here
+├── render.yaml             one-click Render deployment (+ health check)
+├── .gitignore              (deliberately does NOT ignore CSVs or model/)
+├── templates/              index.html · result.html · error.html
+├── static/css/theme.css    shared design + print stylesheet
+├── crimes_indian_dataset/  your data lives here
+└── model/                  trained model lives here
 ```
 
-## Setup
+## Run it locally (Windows / VS Code)
 
-```bash
+```
 python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Download the Kaggle "Indian Crimes" dataset and place the raw CSV at:
+Put the raw Kaggle file at `crimes_indian_dataset/crime_dataset_india.csv`, then run the pipeline **in order**:
 
 ```
-crimes_indian_dataset/crime_dataset_india.csv
+python clean_kaggle.py     # → crimes_indian_dataset/cleaned_crime_data.csv
+python risk_engine.py      # → crimes_indian_dataset/crime_risk_summary.csv
+python train_model.py      # → model/violent_predictor.joblib, encoders, metrics.json
+python app.py              # → http://127.0.0.1:5000
 ```
 
-Then run the pipeline **in this order**:
+**Already have `cleaned_crime_data.csv` and `crime_risk_summary.csv` from before?** Skip the first two steps — just run `python train_model.py` once (it now also writes `model/metrics.json`, which the page uses to show accuracy honestly) and then `python app.py`.
 
-```bash
-python explore_kaggle.py     # optional — sanity-check the columns
-python clean_kaggle.py       # -> crimes_indian_dataset/cleaned_crime_data.csv
-python risk_engine.py        # -> crimes_indian_dataset/crime_risk_summary.csv
-python train_model.py        # -> model/violent_predictor.joblib + encoders
-python app.py                # runs at http://127.0.0.1:5000
+If you skip `train_model.py` the app still works; it just hides the ML card.
+
+## Check that it's healthy
+
+Open **`/health`** (locally `http://127.0.0.1:5000/health`, or on your live site). You should see:
+
+```json
+{"status": "ok", "cities": 29, "ml_model_loaded": true, "ml_metrics_loaded": true, ...}
 ```
 
-If you skip `train_model.py`, the app still runs fine — it just won't show
-the ML Insight panel (checked at startup, logged to the console, no crash).
+`"status": "no-data"` means the server can't find `crimes_indian_dataset/crime_risk_summary.csv` — it wasn't committed.
 
-## Deploying to Render
+## Deploy to Render (free)
 
-1. Push this repo to GitHub, **including** `crimes_indian_dataset/*.csv` and
-   `model/*.joblib` (Render doesn't run your local pipeline for you — commit
-   the generated files, or add a build step that runs the pipeline).
-2. On Render: New → Web Service → connect the repo. `render.yaml` already
-   sets the build/start commands (`gunicorn app:app`).
-3. First deploy will take a minute; subsequent pushes to your connected
-   branch auto-redeploy.
+1. Make sure these are committed and pushed to GitHub:
+   `crimes_indian_dataset/cleaned_crime_data.csv`, `crimes_indian_dataset/crime_risk_summary.csv`
+   (the model files are optional — Render re-trains the model during the build so it matches its own scikit-learn version).
+2. Render → **New → Blueprint** → pick the repo. `render.yaml` sets everything up.
+3. Wait for the build, then open `https://<your-service>.onrender.com/health`.
 
-## Known limitations (say these out loud in your viva — it's a strength, not a weakness)
+```
+git add .
+git commit -m "SafePath AI final version"
+git push
+```
 
-- The dataset has **no per-incident latitude/longitude**, so risk is
-  city + time-period level, not street level. The route color reflects
-  this honestly — one color per route, not a fake gradient.
-- Overpass and OSRM are free public instances with rate limits. Fine for a
-  live demo; not meant for production traffic.
-- The ML model predicts "is this crime violent," a real classification
-  task on real features — it doesn't (and shouldn't be described as)
-  predicting real-time crime.
+**Free-tier notes:** the app sleeps after ~15 min idle and takes ~30–60 s to wake — open the link yourself a minute before a demo.
+
+## How it stays reliable
+
+| Problem | What the app does |
+|---|---|
+| Nominatim blocks/rate-limits the server | falls back to Photon, then to built-in city centres for plain city names |
+| Geocoder returns a city under an odd key (e.g. Delhi) | checks every address field, then matches dataset city names in the text |
+| Overpass is slow or down | tries a mirror; if both fail, markers are clearly labelled *approximate* |
+| "Nearest hospital" being just *some* hospital | searches growing circles and picks the true nearest by haversine distance |
+| Slow free-tier requests | lookups run in parallel, results are cached, gunicorn timeout raised |
+| Browser Back button / refresh | results are a normal link (`/analyze?location=…`), so they refresh, share and bookmark |
+
+## Known limitations (say these out loud — they're a strength)
+
+- The dataset has **no incident coordinates**, so risk is **city × time-of-day**, not street-level. The route colour reflects the city's risk, never a single street.
+- Scores compare **times of day within a city**. They are *not* for ranking cities against each other (frequency is measured against each city's own average).
+- The ML model predicts *"is this incident violent?"* from only four features. Its ROC-AUC is shown on the page; if it's near 0.5 the page says it finds only weak patterns.
+- The data is historical, reported crime from a public Kaggle dataset — not independently verified against official statistics.

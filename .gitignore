@@ -1,8 +1,16 @@
+# Python
+venv/
+.venv/
 __pycache__/
 *.pyc
-*.pyo
-.env
-.venv
-venv/
-*.egg-info/
+
+# Editor / OS
+.vscode/
 .DS_Store
+Thumbs.db
+
+# NOTE: do NOT ignore *.csv or model/ — Render needs
+#   crimes_indian_dataset/cleaned_crime_data.csv
+#   crimes_indian_dataset/crime_risk_summary.csv
+# (the raw Kaggle file crime_dataset_india.csv is large and not needed on Render)
+crimes_indian_dataset/crime_dataset_india.csv

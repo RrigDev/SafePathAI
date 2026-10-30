@@ -3,667 +3,900 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SafePath AI – Results</title>
+    <meta name="theme-color" content="#0a0a14">
+    <title>{{ city }} · Safety {{ data.score }}/100 — SafePath AI</title>
+
+    <script>document.documentElement.classList.add('js');</script>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link href="{{ url_for('static', filename='css/theme.css') }}" rel="stylesheet">
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <style>
-        body { background: #0f0f1a; color: #fff; font-family: 'Segoe UI', sans-serif; }
-
-        .navbar-brand { color: #e94560 !important; font-weight: bold; font-size: 1.4rem; }
-
-        .card-glass {
-            background: rgba(255,255,255,0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 16px;
-            padding: 24px;
-        }
-
-        .score-circle {
-            width: 140px; height: 140px; border-radius: 50%;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-size: 2.2rem; font-weight: bold; margin: 0 auto;
-        }
-
-        .risk-low { background: rgba(40,167,69,0.2); border: 3px solid #28a745; color: #28a745; }
-        .risk-medium { background: rgba(255,193,7,0.2); border: 3px solid #ffc107; color: #ffc107; }
-        .risk-high { background: rgba(220,53,69,0.2); border: 3px solid #dc3545; color: #dc3545; }
-
-        .stat-card {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 12px; padding: 16px; text-align: center;
-        }
-
-        .stat-number { font-size: 1.8rem; font-weight: bold; color: #e94560; }
-
-        #map { height: 400px; border-radius: 12px; z-index: 1; }
-
-        .tip-item {
-            background: rgba(255,255,255,0.04);
-            border-left: 3px solid #e94560;
-            border-radius: 8px; padding: 12px 16px; margin-bottom: 10px;
-        }
-
-        .btn-back { background: #e94560; border: none; padding: 10px 24px; border-radius: 8px; color: white; }
-
-        .notice-banner {
-            background: rgba(255,193,7,0.1); border: 1px solid #ffc107; color: #ffd764;
-            border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; font-size: 0.85rem;
-        }
-
-        .disclaimer {
-            font-size: 0.72rem; color: rgba(255,255,255,0.3);
-            margin-top: 30px; margin-bottom: 10px; line-height: 1.6; text-align: center;
-        }
-
-        .route-btn {
-            display: flex; align-items: center; gap: 12px;
-            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 10px; padding: 12px 16px; cursor: pointer; color: #fff;
-            font-family: 'Segoe UI', sans-serif; font-size: 0.9rem; width: 100%;
-            transition: border-color .2s, background .2s; text-align: left;
-        }
-
-        .route-btn:hover { border-color: #e94560; background: rgba(233,69,96,0.08); }
-        .route-btn.active { border-color: #e94560; background: rgba(233,69,96,0.14); }
-        .route-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-        .dest-icon { font-size: 1.3rem; }
-        .dest-label { font-weight: 600; font-size: 0.88rem; }
-        .dest-eta { font-size: 0.75rem; color: rgba(255,255,255,0.45); margin-top: 2px; }
-        .dest-approx { font-size: 0.68rem; color: #ffc107; margin-top: 2px; }
-
-        .dest-badge {
-            margin-left: auto; font-size: 0.7rem; padding: 3px 10px;
-            border-radius: 999px; font-weight: 600; display: none;
-        }
-
-        .legend-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px; }
-        .legend-item { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; color: rgba(255,255,255,0.6); }
-        .legend-line { width: 28px; height: 4px; border-radius: 2px; }
-
-        .route-status { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin-top: 10px; min-height: 20px; }
-        .route-status.loading { color: #45aaf2; }
-        .route-status.error { color: #e94560; }
-
-        .data-badge {
-            display: inline-block; margin-top: 8px; padding: 4px 10px;
-            border-radius: 999px; background: rgba(69,170,242,0.1);
-            border: 1px solid rgba(69,170,242,0.3); color: #45aaf2; font-size: 0.7rem;
-        }
-
-        .why-row {
-            display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 0.85rem;
-        }
-
-        .why-bar-track {
-            flex: 1; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;
-        }
-
-        .why-bar-fill { height: 100%; background: #e94560; }
-
-        .time-table { width: 100%; font-size: 0.88rem; }
-        .time-table td, .time-table th { padding: 8px 6px; }
-        .time-table tr.current-row { background: rgba(69,170,242,0.08); border-radius: 6px; }
-        .time-table tr.best-row td { color: #28a745; font-weight: 600; }
-        .time-table tr.selected-row { box-shadow: inset 3px 0 0 #e94560; }
-        .time-table tr.selected-row td:first-child { padding-left: 10px; }
-
-        input[type="range"] {
-            -webkit-appearance: none;
-            width: 100%;
-            height: 6px;
-            border-radius: 3px;
-            background: rgba(255,255,255,0.1);
-            outline: none;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 18px; height: 18px; border-radius: 50%;
-            background: #e94560; cursor: pointer;
-            border: 2px solid #fff;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.5);
-        }
-        input[type="range"]::-moz-range-thumb {
-            width: 18px; height: 18px; border-radius: 50%;
-            background: #e94560; cursor: pointer; border: 2px solid #fff;
-        }
-
-        .reset-time-btn {
-            background: none; border: 1px solid rgba(255,255,255,0.15);
-            color: rgba(255,255,255,0.5); font-size: 0.7rem;
-            padding: 3px 10px; border-radius: 999px; cursor: pointer;
-        }
-        .reset-time-btn:hover { border-color: #e94560; color: #fff; }
-
-        .ml-badge {
-            display: inline-block; padding: 3px 10px; border-radius: 999px;
-            background: rgba(233,69,96,0.12); border: 1px solid rgba(233,69,96,0.35);
-            color: #e94560; font-size: 0.7rem; margin-bottom: 10px;
-        }
-    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
-<nav class="navbar px-4 py-3" style="background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.08);">
-    <span class="navbar-brand">🛡️ SafePath AI</span>
-    <a href="/" class="btn btn-back"><i class="fas fa-arrow-left me-2"></i>New Search</a>
-</nav>
+<div class="fx" aria-hidden="true">
+    <div class="fx-grid"></div>
+    <div class="fx-glow fx-glow-1"></div>
+    <div class="fx-glow fx-glow-2"></div>
+    <div class="fx-glow fx-glow-3"></div>
+</div>
 
-<div class="container py-4">
+<div class="page-wrap">
 
-    <div class="mb-4">
-        <h4 class="fw-bold">
-            <i class="fas fa-location-dot me-2" style="color:#e94560;"></i>
-            {{ location }}
-        </h4>
-
-        <small style="color:rgba(255,255,255,0.4);">
-            Historical crime analysis for <strong>{{ city }}</strong> · {{ time_period }} · {{ current_time }}
-        </small>
-
-        <div>
-            <span class="data-badge"><i class="fas fa-database me-1"></i> Real historical crime dataset</span>
+    <!-- ============================ NAV ============================ -->
+    <nav class="d-flex flex-wrap justify-content-between align-items-center gap-2 px-3 px-md-4 py-3 no-print"
+         style="border-bottom:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.03);">
+        <span style="font-weight:800; font-size:1.25rem;">🛡️ SafePath <span class="accent">AI</span></span>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn-sm-ghost" id="copyBtn"><i class="fas fa-link me-1"></i> Copy link</button>
+            <button type="button" class="btn-sm-ghost" onclick="window.print()"><i class="fas fa-print me-1"></i> Print report</button>
+            <a href="/" class="btn-sm-ghost" style="background:#e94560; border-color:#e94560;"><i class="fas fa-arrow-left me-1"></i> New search</a>
         </div>
-    </div>
+    </nav>
 
-    {% if not geocoded %}
-    <div class="notice-banner">⚠️ We couldn't precisely locate "{{ location }}". Please try adding a city or state.</div>
-    {% endif %}
+    <div class="container py-4" style="max-width:1140px;">
 
-    <div class="row g-4">
-
-        <!-- SAFETY SCORE -->
-        <div class="col-md-4">
-            <div class="card-glass text-center h-100">
-                <h6 class="mb-3" style="color:rgba(255,255,255,0.6);">SAFETY SCORE</h6>
-
-                <div class="score-circle {{ risk_class }} mb-3">
-                    <div>{{ score }}</div>
-                    <div style="font-size:0.8rem;">/100</div>
-                </div>
-
-                <div class="mt-3">
-                    <span class="badge fs-6 px-3 py-2
-                        {% if risk_level == 'Low' %}bg-success
-                        {% elif risk_level == 'Medium' %}bg-warning text-dark
-                        {% else %}bg-danger{% endif %}">
-                        {{ risk_level }} Risk
-                    </span>
-                </div>
-
-                <p class="mt-3" style="color:rgba(255,255,255,0.5); font-size:0.85rem;">{{ summary }}</p>
-
-                <div style="margin-top:14px; padding:10px; background:rgba(255,255,255,0.04); border-radius:8px; font-size:0.78rem; color:rgba(255,255,255,0.45);">
-                    Historical risk score: <strong style="color:#fff;">{{ risk_score }}/100</strong>
-                </div>
-
-                <div style="margin-top:8px; font-size:0.72rem; color:rgba(255,255,255,0.3);">
-                    City-level indicator, not a street-by-street guarantee
-                </div>
+        <!-- ======================== HEADER ======================== -->
+        <header class="mb-4">
+            <h1 style="font-size:1.45rem; font-weight:700;">
+                <i class="fas fa-location-dot me-2 accent"></i>{{ location }}
+            </h1>
+            <div class="t3" style="font-size:.88rem;">
+                Historical crime analysis for <strong class="t1">{{ city }}</strong>
+                · {{ time_period }} ({{ period_hours }}) · {{ current_time }} IST
             </div>
-        </div>
-
-        <!-- CRIME STATISTICS -->
-        <div class="col-md-4">
-            <div class="card-glass h-100">
-                <h6 class="mb-3" style="color:rgba(255,255,255,0.6);">CRIME STATISTICS</h6>
-                <div class="row g-2">
-                    <div class="col-6"><div class="stat-card"><div class="stat-number">{{ stats.total_crimes }}</div><small style="color:rgba(255,255,255,0.5);">Total Crimes</small></div></div>
-                    <div class="col-6"><div class="stat-card"><div class="stat-number">{{ stats.violent_crimes }}</div><small style="color:rgba(255,255,255,0.5);">Violent Crimes</small></div></div>
-                    <div class="col-6"><div class="stat-card"><div class="stat-number">{{ stats.theft }}</div><small style="color:rgba(255,255,255,0.5);">Theft</small></div></div>
-                    <div class="col-6"><div class="stat-card"><div class="stat-number">{{ stats.robbery }}</div><small style="color:rgba(255,255,255,0.5);">Robbery</small></div></div>
-                    <div class="col-6"><div class="stat-card"><div class="stat-number">{{ stats.vehicle }}</div><small style="color:rgba(255,255,255,0.5);">Vehicle Theft</small></div></div>
-                    <div class="col-6"><div class="stat-card"><div class="stat-number">{{ stats.property_crimes }}</div><small style="color:rgba(255,255,255,0.5);">Property Crimes</small></div></div>
-                </div>
+            <div class="mt-2 d-flex flex-wrap gap-2">
+                <span class="pill"><i class="fas fa-database"></i> Real historical crime dataset</span>
+                <span class="pill" style="color:var(--mid); border-color:rgba(255,193,7,.35); background:rgba(255,193,7,.08);">
+                    <i class="fas fa-city"></i> City-level, not street-level
+                </span>
             </div>
-        </div>
+        </header>
 
-        <!-- CRIME BREAKDOWN CHART -->
-        <div class="col-md-4">
-            <div class="card-glass h-100">
-                <h6 class="mb-3" style="color:rgba(255,255,255,0.6);">CRIME BREAKDOWN</h6>
-                <canvas id="crimeChart"></canvas>
-            </div>
-        </div>
+        <div class="row g-4">
 
-        <!-- WHY IS THIS AREA RISKY -->
-        <div class="col-md-6">
-            <div class="card-glass h-100">
-                <h6 class="mb-1" style="color:rgba(255,255,255,0.6);">🧠 WHY THIS SCORE?</h6>
-                <small style="color:rgba(255,255,255,0.3); font-size:0.78rem;">Share of historical incidents by category, {{ time_period }} in {{ city }}</small>
+            <!-- ==================== SCORE RING ==================== -->
+            <div class="col-lg-4">
+                <div class="card-glass text-center h-100 reveal">
+                    <div class="card-title">Safety score</div>
 
-                <div class="mt-3">
-                    {% for item in breakdown %}
-                    <div class="why-row">
-                        <div style="width: 120px; color: rgba(255,255,255,0.7);">{{ item.label }}</div>
-                        <div class="why-bar-track">
-                            <div class="why-bar-fill" style="width: {{ item.pct }}%;"></div>
+                    <div class="ring-wrap my-3" style="color:{{ data.map_color }};">
+                        <svg class="ring" viewBox="0 0 140 140" aria-hidden="true">
+                            <circle class="ring-bg" cx="70" cy="70" r="60"></circle>
+                            <circle class="ring-fg" id="ringFg" cx="70" cy="70" r="60" stroke="{{ data.map_color }}"></circle>
+                        </svg>
+                        <div class="ring-center">
+                            <div class="ring-num" id="ringNum" aria-label="Safety score {{ data.score }} out of 100">0</div>
+                            <div class="ring-sub">/ 100</div>
                         </div>
-                        <div style="width: 70px; text-align:right; color: rgba(255,255,255,0.5);">
-                            {{ item.count }} ({{ item.pct }}%)
+                    </div>
+
+                    <span class="badge fs-6 px-3 py-2
+                        {% if data.risk_level == 'Low' %}bg-success
+                        {% elif data.risk_level == 'Medium' %}bg-warning text-dark
+                        {% else %}bg-danger{% endif %}">
+                        {{ data.risk_level }} risk
+                    </span>
+
+                    <p class="t2 mt-3 mb-2" style="font-size:.86rem;">{{ data.summary }}</p>
+
+                    <div class="preview-box t3" style="font-size:.78rem;">
+                        Historical risk score
+                        <strong class="t1">{{ data.risk_score }}/100</strong>
+                        <div class="t4" style="font-size:.72rem;">Safety score = 100 − risk score</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== SAFETY REPORT ==================== -->
+            <div class="col-lg-8">
+                <div class="card-glass h-100 reveal">
+                    <div class="card-title">📋 Safety report</div>
+                    <p class="t1" style="font-size:1rem; line-height:1.6;">{{ assessment }}</p>
+
+                    <div class="row g-2 mt-1">
+                        <div class="col-6 col-md-3">
+                            <div class="glance">
+                                <div class="glance-label">Safest time</div>
+                                <div class="glance-value" style="color:#4ad28a;">{{ best_time.period if best_time else '—' }}</div>
+                                <div class="glance-note">{% if best_time %}risk {{ best_time.risk_score }}/100{% endif %}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="glance">
+                                <div class="glance-label">Riskiest time</div>
+                                <div class="glance-value" style="color:#ff7b8a;">{{ worst_time.period if worst_time else '—' }}</div>
+                                <div class="glance-note">{% if worst_time %}risk {{ worst_time.risk_score }}/100{% endif %}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="glance">
+                                <div class="glance-label">Incidents now</div>
+                                <div class="glance-value">{{ "{:,}".format(data.stats.total_crimes) }}</div>
+                                <div class="glance-note">in the {{ time_period|lower }} period</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="glance">
+                                <div class="glance-label">Violent share</div>
+                                <div class="glance-value">
+                                    {% if data.stats.total_crimes %}{{ (data.stats.violent_crimes / data.stats.total_crimes * 100) | round(1) }}%{% else %}—{% endif %}
+                                </div>
+                                <div class="glance-note">{{ "{:,}".format(data.stats.violent_crimes) }} violent incidents</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if best_time_rows|length > 1 %}
+                    <div class="card-title mt-4" style="margin-bottom:8px;">Your day at a glance · safety score</div>
+                    <div class="day-strip">
+                        {% for row in best_time_rows %}
+                        <div class="day-cell {% if row.is_current %}now{% endif %}" style="border-top-color:{{ row.map_color }};">
+                            <div class="nm">{{ row.period }}{% if row.is_current %} · now{% endif %}</div>
+                            <div class="sc" style="color:{{ row.map_color }};">{{ (100 - row.risk_score) | round | int }}</div>
+                            <div class="hr">{{ row.hours }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="t4 mt-3" style="font-size:.76rem;">
+                        ⚠️ Scores compare times of day <em>within</em> a city. They are not meant for ranking one
+                        city against another.
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== CRIME STATISTICS ==================== -->
+            <div class="col-lg-6">
+                <div class="card-glass h-100 reveal">
+                    <div class="card-title">Crime statistics</div>
+                    <div class="card-sub">Recorded incidents in {{ city }} during the {{ time_period|lower }} period</div>
+                    <div class="row g-2">
+                        <div class="col-4"><div class="stat-tile"><div class="stat-num">{{ "{:,}".format(data.stats.total_crimes) }}</div><div class="stat-label">Total</div></div></div>
+                        <div class="col-4"><div class="stat-tile"><div class="stat-num">{{ "{:,}".format(data.stats.violent_crimes) }}</div><div class="stat-label">Violent</div></div></div>
+                        <div class="col-4"><div class="stat-tile"><div class="stat-num">{{ "{:,}".format(data.stats.theft) }}</div><div class="stat-label">Theft</div></div></div>
+                        <div class="col-4"><div class="stat-tile"><div class="stat-num">{{ "{:,}".format(data.stats.robbery) }}</div><div class="stat-label">Robbery</div></div></div>
+                        <div class="col-4"><div class="stat-tile"><div class="stat-num">{{ "{:,}".format(data.stats.vehicle) }}</div><div class="stat-label">Vehicle theft</div></div></div>
+                        <div class="col-4"><div class="stat-tile"><div class="stat-num">{{ "{:,}".format(data.stats.property_crimes) }}</div><div class="stat-label">Property</div></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card-glass h-100 reveal">
+                    <div class="card-title">Crime breakdown</div>
+                    <div class="card-sub">Share of this period's categorised incidents</div>
+                    <div style="max-width:340px; margin:0 auto;"><canvas id="crimeChart" aria-label="Crime breakdown chart" role="img"></canvas></div>
+                </div>
+            </div>
+
+            <!-- ==================== WHY THIS SCORE ==================== -->
+            <div class="col-lg-6">
+                <div class="card-glass h-100 reveal">
+                    <div class="card-title">🧠 Why this score?</div>
+                    <div class="card-sub">The exact recipe: 60% how often crime happens + 40% how serious it is</div>
+
+                    {% if components %}
+                    <div class="split-bar mb-2" role="img" aria-label="Frequency {{ components.frequency_share }} percent, severity {{ components.severity_share }} percent">
+                        <div class="split-freq" style="width:{{ components.frequency_share }}%;"></div>
+                        <div class="split-sev" style="width:{{ components.severity_share }}%;"></div>
+                    </div>
+                    <div class="d-flex justify-content-between t3 mb-3" style="font-size:.76rem;">
+                        <span><span class="dot" style="background:#e94560;"></span>Frequency {{ components.frequency_share }}% of the score</span>
+                        <span><span class="dot" style="background:#45aaf2;"></span>Severity {{ components.severity_share }}%</span>
+                    </div>
+
+                    <div class="preview-box mb-2">
+                        <div class="t1" style="font-weight:600; font-size:.88rem;">Frequency · {{ components.frequency_score }}/100 → {{ components.frequency_points }} pts</div>
+                        <div class="t3" style="font-size:.8rem;">
+                            {{ time_period }} has <strong class="t1">{{ components.ratio }}×</strong> {{ city }}'s average number
+                            of incidents per time period
+                            {% if components.ratio > 1.05 %}(busier than usual){% elif components.ratio < 0.95 %}(quieter than usual){% else %}(about normal){% endif %}.
+                        </div>
+                    </div>
+
+                    <div class="preview-box">
+                        <div class="t1" style="font-weight:600; font-size:.88rem;">Severity · {{ components.severity_score }}/100 → {{ components.severity_points }} pts</div>
+                        <div class="t3" style="font-size:.8rem;">
+                            Average incident severity is <strong class="t1">{{ components.severity_per_crime }}/10</strong>
+                            (homicide = 10 … traffic violation = 1).
+                        </div>
+                    </div>
+
+                    <div class="t2 mt-3" style="font-size:.85rem;">
+                        {{ components.frequency_points }} + {{ components.severity_points }} =
+                        <strong class="t1">{{ data.risk_score }}/100</strong> historical risk
+                    </div>
+                    {% else %}
+                    <p class="t3" style="font-size:.85rem;">Detailed score components aren't available in this dataset build.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- ==================== CRIME PROFILE ==================== -->
+            <div class="col-lg-6">
+                <div class="card-glass h-100 reveal">
+                    <div class="card-title">🔎 What the incidents look like</div>
+                    <div class="card-sub">
+                        Share of {{ time_period|lower }} incidents by category.
+                        <span style="color:#fff;">│</span> marks the all-day average for {{ city }}.
+                    </div>
+
+                    {% for item in profile %}
+                    <div class="bar-row">
+                        <div class="bar-label">{{ item.label }}</div>
+                        <div class="bar-track">
+                            <div class="bar-fill" data-w="{{ item.pct }}"></div>
+                            {% if item.share_all is not none %}
+                            <div class="bar-tick" style="left:{{ [item.share_all, 100]|min }}%;" title="All-day average {{ item.share_all }}%"></div>
+                            {% endif %}
+                        </div>
+                        <div class="bar-val">
+                            {{ item.pct }}%
+                            {% if item.diff is not none and item.diff|abs >= 0.5 %}
+                                <span class="{{ 'up' if item.diff > 0 else 'down' }}">{{ '▲' if item.diff > 0 else '▼' }} {{ item.diff|abs }}</span>
+                            {% endif %}
                         </div>
                     </div>
                     {% endfor %}
+
+                    <div class="t4" style="font-size:.74rem;">▲ more / ▼ less common than the all-day average (percentage points)</div>
                 </div>
             </div>
-        </div>
 
-        <!-- BEST TIME TO TRAVEL -->
-        <div class="col-md-6">
-            <div class="card-glass h-100">
-                <h6 class="mb-1" style="color:rgba(255,255,255,0.6);">🕐 BEST TIME TO TRAVEL</h6>
-                <small style="color:rgba(255,255,255,0.3); font-size:0.78rem;">Historical risk score by time period in {{ city }}</small>
+            <!-- ==================== BEST TIME ==================== -->
+            <div class="col-lg-6">
+                <div class="card-glass h-100 reveal">
+                    <div class="card-title">🕐 Best time to travel</div>
+                    <div class="card-sub">Historical risk score by time of day in {{ city }} (lower is safer)</div>
 
-                {% if best_time_rows %}
-                <table class="time-table mt-2">
-                    <tbody>
+                    {% if best_time_rows %}
+                    <table class="time-table">
+                        <tbody>
                         {% for row in best_time_rows %}
-                        <tr data-period="{{ row.period }}" class="{% if row.is_current %}current-row{% endif %} {% if best_time and row.period == best_time.period %}best-row{% endif %}">
-                            <td>
-                                {{ row.period }}
-                                {% if row.is_current %}<span style="font-size:0.7rem; color:#45aaf2;">(now)</span>{% endif %}
-                            </td>
-                            <td>{{ row.risk_level }}</td>
-                            <td style="text-align:right;">{{ row.risk_score }}/100</td>
-                        </tr>
+                            <tr data-period="{{ row.period }}"
+                                class="{% if row.is_current %}current-row{% endif %} {% if best_time and row.period == best_time.period %}best-row{% endif %}">
+                                <td>
+                                    <span class="dot" style="background:{{ row.map_color }};"></span>{{ row.period }}
+                                    {% if row.is_current %}<span style="font-size:.7rem; color:var(--accent-2);">(now)</span>{% endif %}
+                                    <div class="t4" style="font-size:.7rem; margin-left:17px;">{{ row.hours }}</div>
+                                </td>
+                                <td>{{ row.risk_level }}</td>
+                                <td>{{ row.risk_score }}/100</td>
+                            </tr>
                         {% endfor %}
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
 
-                {% if best_time %}
-                <div style="margin-top:10px; padding:10px; background:rgba(40,167,69,0.08); border:1px solid rgba(40,167,69,0.3); border-radius:8px; font-size:0.82rem;">
-                    🟢 <strong>{{ best_time.period }}</strong> historically has the lowest risk score ({{ best_time.risk_score }}/100) for {{ city }}.
+                    {% if best_time %}
+                    <div class="mt-2 p-2" style="background:rgba(40,167,69,.09); border:1px solid rgba(40,167,69,.32); border-radius:10px; font-size:.84rem;">
+                        🟢 <strong>{{ best_time.period }}</strong> has the lowest historical risk ({{ best_time.risk_score }}/100) in {{ city }}.
+                    </div>
+                    {% endif %}
+
+                    <div class="mt-3" style="height:190px;"><canvas id="periodChart" aria-label="Risk by time of day" role="img"></canvas></div>
+                    {% else %}
+                    <p class="t3" style="font-size:.85rem;">Not enough data to compare time periods for this city.</p>
+                    {% endif %}
                 </div>
-                {% endif %}
+            </div>
 
-                <!-- INTERACTIVE TIME-OF-DAY SLIDER -->
-                <div style="margin-top:18px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08);">
+            <!-- ==================== TIME SLIDER ==================== -->
+            <div class="col-lg-6">
+                <div class="card-glass h-100 reveal">
+                    <div class="card-title">🎚️ Travelling later? Drag the clock</div>
+                    <div class="card-sub">Pick an hour — the score, chart and map below update instantly</div>
 
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <small style="color:rgba(255,255,255,0.5); font-size:0.78rem;">
-                            🕐 Drag to preview risk at a different hour
-                        </small>
-                        <button type="button" class="reset-time-btn" id="resetTimeBtn">Reset to now</button>
+                        <span class="t2" style="font-size:.84rem;">Departure time</span>
+                        <button type="button" class="btn-sm-ghost no-print" id="resetTimeBtn">Reset to now</button>
                     </div>
 
-                    <input type="range" min="0" max="23" step="1" id="timeSlider">
-
-                    <div class="d-flex justify-content-between mt-1" style="font-size:0.65rem; color:rgba(255,255,255,0.3);">
+                    <input type="range" class="sp-range" min="0" max="23" step="1" id="timeSlider" aria-label="Hour of day">
+                    <div class="d-flex justify-content-between t4 mt-1" style="font-size:.65rem;">
                         <span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>11 PM</span>
                     </div>
 
-                    <div class="d-flex align-items-center gap-3 mt-3 p-2" style="background:rgba(255,255,255,0.04); border-radius:10px;">
-                        <div id="previewScore" style="font-size:1.6rem; font-weight:bold; min-width:50px; text-align:center;">--</div>
+                    <div class="preview-box d-flex align-items-center gap-3 mt-3">
+                        <div id="previewScore" style="font-size:2.2rem; font-weight:800; min-width:64px; text-align:center;">--</div>
                         <div>
-                            <div id="previewLabel" style="font-weight:600; font-size:0.9rem;">--</div>
-                            <div id="previewTime" style="font-size:0.75rem; color:rgba(255,255,255,0.45);">--</div>
+                            <div id="previewLabel" style="font-weight:700;">--</div>
+                            <div id="previewTime" class="t3" style="font-size:.78rem;">--</div>
                         </div>
                     </div>
 
-                    <div id="previewSummary" style="margin-top:8px; font-size:0.78rem; color:rgba(255,255,255,0.5);"></div>
+                    <div id="previewSummary" class="t2 mt-2" style="font-size:.82rem;"></div>
+                    <div id="previewMl" class="t3 mt-2" style="font-size:.78rem;"></div>
 
-                    <div style="margin-top:6px; font-size:0.66rem; color:rgba(255,255,255,0.3);">
-                        The map and route color above update live as you drag — try it.
+                    <div class="t4 mt-3" style="font-size:.72rem;">
+                        Risk data exists for four time bands, so every hour inside a band shows that band's real figures —
+                        nothing is estimated between bands.
                     </div>
-                </div>
-
-                {% else %}
-                <p style="color:rgba(255,255,255,0.4); font-size:0.85rem; margin-top:10px;">
-                    Not enough data to compare time periods for this city.
-                </p>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- ML INSIGHT -->
-        {% if ml_insight %}
-        <div class="col-12">
-            <div class="card-glass">
-                <span class="ml-badge">🤖 ML MODEL</span>
-                <h6 class="mb-2" style="color:rgba(255,255,255,0.6);">MACHINE LEARNING INSIGHT</h6>
-                <p style="font-size:0.9rem; color:rgba(255,255,255,0.75); margin-bottom:6px;">
-                    A Random Forest classifier trained on historical incident records estimates a
-                    <strong style="color:#e94560;">{{ ml_insight.violent_probability }}%</strong>
-                    likelihood that a crime occurring in {{ city }} at this hour and day of week is violent in nature.
-                </p>
-                <small style="color:rgba(255,255,255,0.4); font-size:0.78rem;">
-                    Most influential factor in the model: <strong>{{ ml_insight.top_feature }}</strong>.
-                    This is a separate, genuinely trained model — distinct from the statistical risk score above —
-                    supplementing it rather than replacing it.
-                </small>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- SAFE ROUTE FINDER -->
-        <div class="col-12">
-            <div class="card-glass">
-                <h6 class="mb-1" style="color:rgba(255,255,255,0.6);">ROUTE FINDER</h6>
-                <small style="color:rgba(255,255,255,0.3); font-size:0.78rem;">
-                    Real walking routes via OSRM, to the nearest real hospital / police station / transit stop.
-                </small>
-
-                <div class="row g-2 mt-2 mb-3">
-
-                    <div class="col-md-4">
-                        <button class="route-btn" id="btn-hospital" onclick="fetchRoute('hospital')">
-                            <span class="dest-icon">{{ destinations.hospital.emoji }}</span>
-                            <div>
-                                <div class="dest-label">Nearest Hospital</div>
-                                <div class="dest-eta" id="eta-hospital">Click to calculate</div>
-                                {% if not destinations.hospital.found %}<div class="dest-approx">⚠️ approximate</div>{% endif %}
-                            </div>
-                            <span class="dest-badge" id="badge-hospital"></span>
-                        </button>
-                    </div>
-
-                    <div class="col-md-4">
-                        <button class="route-btn" id="btn-police" onclick="fetchRoute('police')">
-                            <span class="dest-icon">{{ destinations.police.emoji }}</span>
-                            <div>
-                                <div class="dest-label">Nearest Police Station</div>
-                                <div class="dest-eta" id="eta-police">Click to calculate</div>
-                                {% if not destinations.police.found %}<div class="dest-approx">⚠️ approximate</div>{% endif %}
-                            </div>
-                            <span class="dest-badge" id="badge-police"></span>
-                        </button>
-                    </div>
-
-                    <div class="col-md-4">
-                        <button class="route-btn" id="btn-transit" onclick="fetchRoute('transit')">
-                            <span class="dest-icon">{{ destinations.transit.emoji }}</span>
-                            <div>
-                                <div class="dest-label">Nearest Transit Stop</div>
-                                <div class="dest-eta" id="eta-transit">Click to calculate</div>
-                                {% if not destinations.transit.found %}<div class="dest-approx">⚠️ approximate</div>{% endif %}
-                            </div>
-                            <span class="dest-badge" id="badge-transit"></span>
-                        </button>
-                    </div>
-
-                </div>
-
-                <div id="map"></div>
-
-                <div class="route-status" id="routeStatus">Select a destination above to draw a route.</div>
-
-                <div class="legend-row">
-                    <div class="legend-item"><div class="legend-line" id="legend-route-line" style="background:{{ map_color }};"></div> Route (city historical risk: <span id="legend-risk-label">{{ risk_level }}</span>)</div>
-                    <div class="legend-item"><div class="legend-line" style="background:#45aaf2;"></div> Your location</div>
-                </div>
-
-                <div style="margin-top:10px; font-size:0.75rem; color:rgba(255,255,255,0.35);">
-                    ℹ️ The route line uses one color reflecting {{ city }}'s overall historical risk for {{ time_period }}.
-                    We do not claim any individual street segment is safer than another — our dataset has no
-                    incident-level coordinates to support that.
                 </div>
             </div>
-        </div>
 
-        <!-- SAFETY TIPS -->
-        <div class="col-12">
-            <div class="card-glass">
-                <h6 class="mb-3" style="color:rgba(255,255,255,0.6);">SAFETY TIPS</h6>
-                <div class="row g-2">
-                    {% for tip in tips %}
-                    <div class="col-md-6"><div class="tip-item"><small>{{ tip }}</small></div></div>
+            <!-- ==================== ML INSIGHT ==================== -->
+            {% if ml %}
+            <div class="col-12">
+                <div class="card-glass reveal">
+                    <div class="d-flex flex-wrap justify-content-between gap-2">
+                        <div>
+                            <div class="card-title">🤖 Machine-learning insight</div>
+                            <div class="card-sub mb-2">
+                                Random Forest trained on {{ "{:,}".format(ml.metrics.n_records) if ml.metrics and ml.metrics.n_records else 'the' }}
+                                individual incident records · predicts how likely an incident is to be violent, hour by hour ({{ ml.weekday }})
+                            </div>
+                        </div>
+                        <span class="pill" style="height:fit-content; color:var(--accent); border-color:rgba(233,69,96,.4); background:rgba(233,69,96,.10);">ML MODEL</span>
+                    </div>
+
+                    <div class="row g-3 align-items-center">
+                        <div class="col-lg-8"><div style="height:240px;"><canvas id="mlChart" aria-label="Estimated violent share by hour" role="img"></canvas></div></div>
+
+                        <div class="col-lg-4">
+                            <div class="preview-box mb-2">
+                                <div class="glance-label">Right now ({{ current_time }})</div>
+                                <div style="font-size:1.9rem; font-weight:800; color:var(--accent);">{{ ml.now_pct }}%</div>
+                                <div class="t3" style="font-size:.78rem;">of incidents estimated to be violent</div>
+                            </div>
+
+                            {% if ml.weak_signal %}
+                            <p class="t2" style="font-size:.82rem;">
+                                The model finds only <strong class="t1">small hour-to-hour differences</strong>
+                                (spread {{ ml.spread }} points). That matches the statistical table: time of day matters, but modestly.
+                            </p>
+                            {% else %}
+                            <p class="t2" style="font-size:.82rem;">
+                                Highest around <strong class="t1">{{ ml.peak_hour }}</strong> ({{ ml.peak_pct }}%),
+                                lowest around <strong class="t1">{{ ml.calm_hour }}</strong> ({{ ml.calm_pct }}%).
+                            </p>
+                            {% endif %}
+
+                            {% if ml.metrics and ml.metrics.roc_auc is not none %}
+                            <div class="t3" style="font-size:.76rem; line-height:1.5;">
+                                <strong class="t2">Model honesty check</strong><br>
+                                ROC-AUC <strong class="t1">{{ ml.metrics.roc_auc }}</strong> (0.5 = chance, 1.0 = perfect)
+                                {% if ml.metrics.roc_auc < 0.55 %}— close to chance: it detects only weak patterns.
+                                {% elif ml.metrics.roc_auc < 0.70 %}— modest skill.
+                                {% else %}— good skill.{% endif %}
+                                <br>Overall violent share: {{ ml.metrics.violent_base_rate_pct }}%.
+                                {% if ml.top_feature %}<br>Most influential feature: <strong class="t1">{{ ml.top_feature }}</strong>.{% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="t4 mt-2" style="font-size:.74rem;">
+                        This supplements the statistical score — it does not replace it, and it does not predict individual crimes.
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ==================== ROUTE FINDER ==================== -->
+            <div class="col-12">
+                <div class="card-glass reveal">
+                    <div class="card-title">🗺️ Route finder</div>
+                    <div class="card-sub">Real places from OpenStreetMap and real walking routes — choose a destination</div>
+
+                    <div class="row g-2 mb-3">
+                        {% for kind, name in [('hospital', 'Nearest hospital'), ('police', 'Nearest police station'), ('transit', 'Nearest transit stop')] %}
+                        {% set d = destinations[kind] %}
+                        <div class="col-md-4">
+                            <button type="button" class="route-btn" id="btn-{{ kind }}" onclick="fetchRoute('{{ kind }}')">
+                                <span class="dest-icon">{{ d.emoji }}</span>
+                                <div style="min-width:0;">
+                                    <div class="dest-label">{{ name }}</div>
+                                    <div class="t3" style="font-size:.74rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ d.label }}</div>
+                                    <div class="dest-eta" id="eta-{{ kind }}">
+                                        {% if d.found %}≈ {{ d.distance_km }} km away · tap for walking route{% else %}tap for walking route{% endif %}
+                                    </div>
+                                    {% if not d.found %}<div class="dest-approx">⚠️ approximate location</div>{% endif %}
+                                </div>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div id="map" role="application" aria-label="Map with nearby hospital, police station and transit stop"></div>
+
+                    <div class="route-status" id="routeStatus" aria-live="polite">Select a destination above to draw a walking route.</div>
+
+                    <a id="mapsLink" class="btn-sm-ghost mt-1 no-print" href="#" target="_blank" rel="noopener" hidden>
+                        <i class="fas fa-up-right-from-square me-1"></i> Open this route in Google Maps
+                    </a>
+
+                    <div class="legend-row">
+                        <div class="legend-item"><div class="legend-line" id="legendLine" style="background:{{ data.map_color }};"></div>
+                            Route · {{ city }} historical risk: <strong id="legendRisk">{{ data.risk_level }}</strong></div>
+                        <div class="legend-item"><div class="legend-line" style="background:#45aaf2;"></div> Your location</div>
+                    </div>
+
+                    <div class="t4 mt-2" style="font-size:.75rem;">
+                        ℹ️ The route is a real walking route; its colour reflects {{ city }}'s overall historical risk for the
+                        selected time of day. We don't claim one street is safer than another — the dataset has no
+                        incident-level coordinates to support that.
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== CHECKLIST ==================== -->
+            <div class="col-lg-7">
+                <div class="card-glass h-100 reveal">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="card-title">✅ Your safety checklist</div>
+                            <div class="card-sub">Tailored to this risk level · ticks are saved in this browser only</div>
+                        </div>
+                        <span class="t3" style="font-size:.8rem;" id="checkCount">0/0</span>
+                    </div>
+
+                    <div class="progress-sp mb-3"><div id="checkProgress"></div></div>
+
+                    {% for tip in data.tips %}
+                    <label class="check-item">
+                        <input type="checkbox" class="tip-check" data-tip="{{ tip }}">
+                        <span>{{ tip }}</span>
+                    </label>
                     {% endfor %}
                 </div>
             </div>
+
+            <!-- ==================== EMERGENCY ==================== -->
+            <div class="col-lg-5">
+                <div class="card-glass h-100 reveal">
+                    <div class="card-title">🚨 Emergency numbers (India)</div>
+                    <div class="card-sub">Tap to call on your phone</div>
+                    <div class="d-grid gap-2">
+                        <a class="sos" href="tel:112"><span class="sos-num">112</span><span>National emergency number — works anywhere</span></a>
+                        <a class="sos" href="tel:100"><span class="sos-num">100</span><span>Police</span></a>
+                        <a class="sos" href="tel:108"><span class="sos-num">108</span><span>Ambulance</span></a>
+                        <a class="sos" href="tel:1091"><span class="sos-num">1091</span><span>Women's helpline</span></a>
+                    </div>
+                    <div class="t4 mt-2" style="font-size:.72rem;">Some numbers vary slightly by state — 112 is the safest one to remember.</div>
+                </div>
+            </div>
+
+            <!-- ==================== METHODOLOGY ==================== -->
+            <div class="col-12">
+                <div class="card-glass reveal">
+                    <details class="method" open>
+                        <summary>📚 Data &amp; methodology <span class="t4" style="font-weight:400; font-size:.8rem;">— how this was built</span></summary>
+
+                        <dl class="method-grid">
+                            <dt>Dataset</dt>
+                            <dd>Indian historical crime dataset · {{ "{:,}".format(meta.records) }} incidents across {{ meta.cities }} cities (incidents with a usable time of day)</dd>
+
+                            <dt>Resolution</dt>
+                            <dd>City level × four time bands (morning, afternoon, evening, night). No street-level coordinates exist in the data.</dd>
+
+                            <dt>Risk score</dt>
+                            <dd>60% frequency (incidents vs the city's own average) + 40% severity (weighted by crime type: homicide 10 … traffic violation 1). Safety score = 100 − risk.</dd>
+
+                            <dt>Machine learning</dt>
+                            <dd>
+                                {% if ml_available %}
+                                Random Forest classifier (city, hour, weekday, month → violent or not)
+                                {% if ml_metrics and ml_metrics.roc_auc is not none %}· ROC-AUC {{ ml_metrics.roc_auc }}{% endif %}
+                                {% if ml_metrics and ml_metrics.n_train %}· trained on {{ "{:,}".format(ml_metrics.n_train) }} records{% endif %}
+                                {% else %}
+                                Not loaded on this server.
+                                {% endif %}
+                            </dd>
+
+                            <dt>Places &amp; routes</dt>
+                            <dd>OpenStreetMap: Nominatim / Photon (geocoding), Overpass (nearest hospital, police, transit), OSRM (walking routes)</dd>
+
+                            <dt>Limitations</dt>
+                            <dd>Historical, reported crime only · city-level, not street-level · not real-time · scores compare times of day within a city, not cities with each other · not a guarantee of safety</dd>
+                        </dl>
+                    </details>
+                </div>
+            </div>
+
         </div>
 
+        <p class="t4 text-center mt-4 mb-2" style="font-size:.72rem; line-height:1.65;">
+            SafePath AI is a student prototype. Risk scores are calculated from a historical crime dataset and represent
+            city-level, time-of-day patterns — not street-level or real-time crime prediction. This tool is not a
+            guarantee of personal safety. In an emergency, call 112.
+        </p>
     </div>
-
-    <p class="disclaimer">
-        SafePath AI is a student prototype. Risk scores are calculated from a historical crime dataset
-        and represent city-level, time-of-day patterns — not street-level or real-time crime prediction.
-        Routes are real walking directions (OSRM); the route color reflects the city's overall historical
-        risk level, not a per-street risk assessment. This tool is not a guarantee of personal safety.
-    </p>
-
 </div>
 
+
 <script>
-
-const ctx = document.getElementById('crimeChart').getContext('2d');
-
-new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-        labels: ['Theft', 'Robbery', 'Vehicle Theft', 'Violent Crime', 'Property Crime', 'Domestic Violence'],
-        datasets: [{
-            data: [
-                {{ stats.theft }}, {{ stats.robbery }}, {{ stats.vehicle }},
-                {{ stats.violent_crimes }}, {{ stats.property_crimes }}, {{ stats.domestic_violence }}
-            ],
-            backgroundColor: ['#e94560', '#f7b731', '#45aaf2', '#dc3545', '#a55eea', '#20bf6b'],
-            borderWidth: 0
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { labels: { color: 'rgba(255,255,255,0.6)' } } }
-    }
-});
-
+/* ================================================================
+   DATA FROM THE SERVER  (all real values — nothing invented here)
+================================================================ */
 const CENTER_LAT = {{ lat }};
 const CENTER_LNG = {{ lng }};
-let ROUTE_COLOR = "{{ map_color }}";
+const SCORE = {{ data.score }};
+const BASE_COLOR = {{ data.map_color | tojson }};
+const BASE_LEVEL = {{ data.risk_level | tojson }};
+const CURRENT_HOUR = {{ current_hour }};
+const PERIODS = {{ periods | tojson }};
+const DESTS = {{ destinations | tojson }};
+const STATS = {{ data.stats | tojson }};
+const ML_HOURLY = {{ (ml.hourly if ml else []) | tojson }};
+const ML_BASE = {{ (ml.metrics.violent_base_rate_pct if (ml and ml.metrics and ml.metrics.violent_base_rate_pct is not none) else None) | tojson }};
+const SEARCH = { query: {{ query | tojson }}, city: {{ city | tojson }}, score: SCORE };
 
-const C = { pin: '#45aaf2' };
+/* ================================================================
+   SMALL HELPERS
+================================================================ */
+function hourToPeriod(h) {
+    if (h >= 5 && h < 12) return "Morning";
+    if (h >= 12 && h < 17) return "Afternoon";
+    if (h >= 17 && h < 21) return "Evening";
+    return "Night";
+}
+function fmtHour(h) { var h12 = h % 12 || 12; return h12 + ":00 " + (h < 12 ? "AM" : "PM"); }
+function shortHour(h) { var h12 = h % 12 || 12; return h12 + (h < 12 ? "a" : "p"); }
 
-const map = L.map('map').setView([CENTER_LAT, CENTER_LNG], 14);
+if (window.Chart) {
+    Chart.defaults.color = 'rgba(190,195,215,0.85)';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+    Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+}
+
+/* ================================================================
+   REVEAL ON SCROLL + ANIMATED BARS + SCORE RING
+================================================================ */
+(function () {
+    var els = document.querySelectorAll('.reveal');
+    function growBars(scope) {
+        scope.querySelectorAll('.bar-fill').forEach(function (b) { b.style.width = b.dataset.w + '%'; });
+    }
+    if ('IntersectionObserver' in window) {
+        var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (en) {
+                if (en.isIntersecting) { en.target.classList.add('in'); growBars(en.target); io.unobserve(en.target); }
+            });
+        }, { threshold: 0.12 });
+        els.forEach(function (el) { io.observe(el); });
+    } else {
+        els.forEach(function (el) { el.classList.add('in'); growBars(el); });
+    }
+
+    // score ring + count-up
+    var ring = document.getElementById('ringFg');
+    var num = document.getElementById('ringNum');
+    var C = 2 * Math.PI * 60;
+    ring.style.strokeDasharray = C;
+    ring.style.strokeDashoffset = C;
+
+    requestAnimationFrame(function () {
+        ring.style.strokeDashoffset = C * (1 - SCORE / 100);
+    });
+
+    var start = null, dur = 1300;
+    function tick(ts) {
+        if (!start) start = ts;
+        var p = Math.min((ts - start) / dur, 1);
+        num.textContent = Math.round(SCORE * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+})();
+
+/* ================================================================
+   CHARTS
+================================================================ */
+var periodChart = null, mlChart = null;
+
+(function () {
+    // crime breakdown doughnut
+    var el = document.getElementById('crimeChart');
+    if (el && window.Chart) {
+        new Chart(el.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Theft', 'Robbery', 'Vehicle theft', 'Violent', 'Property', 'Domestic violence'],
+                datasets: [{
+                    data: [STATS.theft, STATS.robbery, STATS.vehicle, STATS.violent_crimes, STATS.property_crimes, STATS.domestic_violence],
+                    backgroundColor: ['#e94560', '#f7b731', '#45aaf2', '#dc3545', '#a55eea', '#20bf6b'],
+                    borderWidth: 0
+                }]
+            },
+            options: { responsive: true, cutout: '62%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12 } } } }
+        });
+    }
+
+    // risk by time-of-day bars
+    var pc = document.getElementById('periodChart');
+    if (pc && window.Chart) {
+        var order = ["Morning", "Afternoon", "Evening", "Night"].filter(function (p) { return PERIODS[p]; });
+        periodChart = new Chart(pc.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: order,
+                datasets: [{
+                    data: order.map(function (p) { return PERIODS[p].risk_score; }),
+                    backgroundColor: order.map(function (p) { return PERIODS[p].map_color + '88'; }),
+                    borderColor: order.map(function (p) { return PERIODS[p].map_color; }),
+                    borderWidth: 2,
+                    borderRadius: 7
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (c) { return 'Risk score ' + c.parsed.y + '/100'; } } } },
+                scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'Risk (lower = safer)' } } }
+            }
+        });
+        periodChart._order = order;
+    }
+
+    // ML hourly curve
+    var mc = document.getElementById('mlChart');
+    if (mc && window.Chart && ML_HOURLY.length === 24) {
+        var labels = ML_HOURLY.map(function (_, h) { return shortHour(h); });
+        var datasets = [{
+            label: 'Estimated violent share',
+            data: ML_HOURLY,
+            borderColor: '#e94560',
+            backgroundColor: 'rgba(233,69,96,0.14)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: ML_HOURLY.map(function (_, h) { return h === CURRENT_HOUR ? 6 : 2; }),
+            pointBackgroundColor: ML_HOURLY.map(function (_, h) { return h === CURRENT_HOUR ? '#fff' : '#e94560'; })
+        }];
+        if (ML_BASE !== null) {
+            datasets.push({
+                label: 'Overall average (' + ML_BASE + '%)',
+                data: ML_HOURLY.map(function () { return ML_BASE; }),
+                borderColor: 'rgba(255,255,255,0.45)', borderDash: [6, 5], pointRadius: 0, fill: false
+            });
+        }
+        mlChart = new Chart(mc.getContext('2d'), {
+            type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { labels: { boxWidth: 14 } }, tooltip: { callbacks: { label: function (c) { return c.dataset.label.split(' (')[0] + ': ' + c.parsed.y + '%'; } } } },
+                scales: { y: { title: { display: true, text: '% of incidents violent' } } }
+            }
+        });
+    }
+})();
+
+/* ================================================================
+   MAP
+================================================================ */
+var map = L.map('map').setView([CENTER_LAT, CENTER_LNG], 14);
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '© OpenStreetMap © CARTO',
-    subdomains: 'abcd',
-    maxZoom: 19
+    attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 19
 }).addTo(map);
 
-const riskCircle = L.circle([CENTER_LAT, CENTER_LNG], {
-    color: ROUTE_COLOR, fillColor: ROUTE_COLOR, fillOpacity: 0.15,
-    radius: 600, weight: 1.5, dashArray: '6 4'
+var ROUTE_COLOR = BASE_COLOR;
+
+var riskCircle = L.circle([CENTER_LAT, CENTER_LNG], {
+    color: ROUTE_COLOR, fillColor: ROUTE_COLOR, fillOpacity: 0.15, radius: 600, weight: 1.5, dashArray: '6 4'
 }).addTo(map);
 
 function makePin(emoji, bg) {
     return L.divIcon({
-        html: `<div style="background:${bg}; width:38px; height:38px; border-radius:50%;
-                display:flex; align-items:center; justify-content:center; font-size:1.1rem;
-                border:2px solid #fff; box-shadow:0 2px 10px rgba(0,0,0,.6);">${emoji}</div>`,
-        className: '',
-        iconSize: [38, 38],
-        iconAnchor: [19, 19]
+        html: '<div style="background:' + bg + '; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.1rem; border:2px solid #fff; box-shadow:0 2px 10px rgba(0,0,0,.6);">' + emoji + '</div>',
+        className: '', iconSize: [38, 38], iconAnchor: [19, 19]
     });
 }
 
-L.marker([CENTER_LAT, CENTER_LNG], { icon: makePin('📍', C.pin) })
-    .addTo(map)
-    .bindPopup('<b>Your Location</b>');
+L.marker([CENTER_LAT, CENTER_LNG], { icon: makePin('📍', '#45aaf2') }).addTo(map).bindPopup('<b>Your location</b>');
 
-// Real destinations, computed server-side via the Overpass API —
-// no hardcoded lat/lng offsets.
-const DESTS = {
-    hospital: {
-        lat: {{ destinations.hospital.lat }},
-        lng: {{ destinations.hospital.lng }},
-        label: {{ destinations.hospital.label | tojson }},
-        emoji: {{ destinations.hospital.emoji | tojson }}
-    },
-    police: {
-        lat: {{ destinations.police.lat }},
-        lng: {{ destinations.police.lng }},
-        label: {{ destinations.police.label | tojson }},
-        emoji: {{ destinations.police.emoji | tojson }}
-    },
-    transit: {
-        lat: {{ destinations.transit.lat }},
-        lng: {{ destinations.transit.lng }},
-        label: {{ destinations.transit.label | tojson }},
-        emoji: {{ destinations.transit.emoji | tojson }}
-    }
-};
+var destMarkers = {};
+var bounds = [[CENTER_LAT, CENTER_LNG]];
 
-let routeLayer = null;
-let destMarker = null;
+Object.keys(DESTS).forEach(function (kind) {
+    var d = DESTS[kind];
+    var popup = document.createElement('div');
+    var b = document.createElement('b'); b.textContent = d.label; popup.appendChild(b);
+    if (d.found) { popup.appendChild(document.createElement('br')); popup.appendChild(document.createTextNode('≈ ' + d.distance_km + ' km away')); }
+    destMarkers[kind] = L.marker([d.lat, d.lng], { icon: makePin(d.emoji, '#1e2535') }).addTo(map).bindPopup(popup);
+    if (d.found) bounds.push([d.lat, d.lng]);
+});
 
-async function fetchRoute(type) {
+if (bounds.length > 1) map.fitBounds(L.latLngBounds(bounds).pad(0.2), { maxZoom: 15 });
 
-    const dest = DESTS[type];
-    const btn = document.getElementById(`btn-${type}`);
-    const eta = document.getElementById(`eta-${type}`);
-    const badge = document.getElementById(`badge-${type}`);
-
-    document.querySelectorAll('.route-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-
-    setStatus('loading', '⏳ Calculating route…');
-    eta.textContent = 'Fetching…';
-
-    if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
-    if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
-
-    try {
-
-        const url = `https://router.project-osrm.org/route/v1/foot/` +
-            `${CENTER_LNG},${CENTER_LAT};${dest.lng},${dest.lat}` +
-            `?overview=full&geometries=geojson`;
-
-        const res = await fetch(url);
-        const json = await res.json();
-
-        if (!json.routes?.length) throw new Error('No route found');
-
-        const route = json.routes[0];
-        const coords = route.geometry.coordinates;
-        const mins = Math.round(route.duration / 60);
-        const km = (route.distance / 1000).toFixed(1);
-
-        // Single honest color for the whole route — reflects the
-        // city's overall historical risk level, not fabricated
-        // per-segment variation.
-        routeLayer = L.polyline(
-            coords.map(([lng, lat]) => [lat, lng]),
-            { color: ROUTE_COLOR, weight: 5, opacity: 0.9, lineJoin: 'round', lineCap: 'round' }
-        ).addTo(map);
-
-        destMarker = L.marker([dest.lat, dest.lng], { icon: makePin(dest.emoji, '#1e2535') })
-            .addTo(map)
-            .bindPopup(`<b>${dest.label}</b><br>${km} km · ${mins} min walk`)
-            .openPopup();
-
-        map.fitBounds(L.latLngBounds(coords.map(([lng, lat]) => [lat, lng])).pad(0.12));
-
-        eta.textContent = `${mins} min walk · ${km} km`;
-
-        badge.textContent = "Route";
-        badge.style.cssText = `display:inline-block; background:${ROUTE_COLOR}22; color:${ROUTE_COLOR}; border:1px solid ${ROUTE_COLOR}55;`;
-
-        setStatus('', `✅ Route to ${dest.label} — ${mins} min (${km} km)`);
-
-    } catch (err) {
-
-        setStatus('error', '⚠️ Could not fetch route. Check your connection.');
-        eta.textContent = 'Error – try again';
-        console.error(err);
-    }
-}
+/* ================================================================
+   ROUTES (OSRM walking directions)
+================================================================ */
+var routeLine = null;
 
 function setStatus(cls, msg) {
-    const el = document.getElementById('routeStatus');
-    el.className = `route-status ${cls}`;
+    var el = document.getElementById('routeStatus');
+    el.className = 'route-status ' + cls;
     el.textContent = msg;
 }
 
-/* ============================================================
-   INTERACTIVE TIME-OF-DAY SLIDER
-   Every value shown here is real precomputed data from the
-   backend (PERIODS_DATA) for one of the four time periods —
-   nothing is interpolated or invented between hours. Moving
-   the slider just picks which real period's numbers to show.
-============================================================ */
+async function fetchRoute(kind) {
+    var dest = DESTS[kind];
+    var eta = document.getElementById('eta-' + kind);
+    var link = document.getElementById('mapsLink');
 
-const PERIODS_DATA = {{ periods_snapshot | tojson }};
-const CURRENT_HOUR = {{ current_hour }};
+    document.querySelectorAll('.route-btn').forEach(function (b) { b.classList.remove('active'); });
+    document.getElementById('btn-' + kind).classList.add('active');
 
-function hourToPeriod(hour) {
-    if (hour >= 5 && hour < 12) return "Morning";
-    if (hour >= 12 && hour < 17) return "Afternoon";
-    if (hour >= 17 && hour < 21) return "Evening";
-    return "Night";
+    setStatus('loading', '⏳ Calculating walking route…');
+    eta.textContent = 'Fetching…';
+    link.hidden = true;
+
+    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+
+    try {
+        var url = 'https://router.project-osrm.org/route/v1/foot/' +
+            CENTER_LNG + ',' + CENTER_LAT + ';' + dest.lng + ',' + dest.lat +
+            '?overview=full&geometries=geojson';
+
+        var res = await fetch(url);
+        var json = await res.json();
+
+        if (!json.routes || !json.routes.length) throw new Error('No route found');
+
+        var route = json.routes[0];
+        var pts = route.geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
+        var mins = Math.max(1, Math.round(route.duration / 60));
+        var km = (route.distance / 1000).toFixed(1);
+
+        routeLine = L.polyline(pts, { color: ROUTE_COLOR, weight: 5, opacity: 0.92, lineJoin: 'round', lineCap: 'round' }).addTo(map);
+        map.fitBounds(L.latLngBounds(pts).pad(0.15));
+        destMarkers[kind].openPopup();
+
+        eta.textContent = mins + ' min walk · ' + km + ' km';
+        setStatus('', '✅ Route to ' + dest.label + ' — ' + mins + ' min (' + km + ' km)');
+
+        link.href = 'https://www.google.com/maps/dir/?api=1&origin=' + CENTER_LAT + ',' + CENTER_LNG +
+            '&destination=' + dest.lat + ',' + dest.lng + '&travelmode=walking';
+        link.hidden = false;
+
+    } catch (err) {
+        console.error(err);
+        setStatus('error', '⚠️ Couldn\'t fetch a route right now. Check your connection and try again.');
+        eta.textContent = 'Error — try again';
+    }
 }
 
-function formatHour(hour) {
-    let h12 = hour % 12;
-    if (h12 === 0) h12 = 12;
-    return `${h12}:00 ${hour < 12 ? "AM" : "PM"}`;
-}
+/* ================================================================
+   TIME-OF-DAY SLIDER — picks one of the four REAL periods
+================================================================ */
+(function () {
+    var slider = document.getElementById('timeSlider');
+    if (!slider) return;
 
-const timeSlider = document.getElementById('timeSlider');
-const previewScore = document.getElementById('previewScore');
-const previewLabel = document.getElementById('previewLabel');
-const previewTime = document.getElementById('previewTime');
-const previewSummary = document.getElementById('previewSummary');
-const resetTimeBtn = document.getElementById('resetTimeBtn');
-const legendRiskLabel = document.getElementById('legend-risk-label');
-const legendRouteLine = document.getElementById('legend-route-line');
+    var pScore = document.getElementById('previewScore');
+    var pLabel = document.getElementById('previewLabel');
+    var pTime = document.getElementById('previewTime');
+    var pSummary = document.getElementById('previewSummary');
+    var pMl = document.getElementById('previewMl');
+    var legendLine = document.getElementById('legendLine');
+    var legendRisk = document.getElementById('legendRisk');
 
-function applyTimePreview(hour) {
+    function apply(hour) {
+        var period = hourToPeriod(hour);
+        var snap = PERIODS[period];
 
-    const period = hourToPeriod(hour);
-    const snap = PERIODS_DATA[period];
+        pTime.textContent = fmtHour(hour) + ' · ' + period + (hour === CURRENT_HOUR ? ' (now)' : '');
 
-    previewTime.textContent = `${formatHour(hour)} · ${period}`;
+        if (!snap) {
+            pScore.textContent = '--'; pScore.style.color = '';
+            pLabel.textContent = 'No data for this period';
+            pSummary.textContent = ''; pMl.textContent = '';
+            return;
+        }
 
-    if (!snap) {
-        previewScore.textContent = '--';
-        previewLabel.textContent = 'No data for this period';
-        previewSummary.textContent = '';
-        return;
+        pScore.textContent = snap.score;
+        pScore.style.color = snap.map_color;
+        pLabel.textContent = snap.risk_level + ' risk · ' + snap.risk_score + '/100';
+        pSummary.textContent = snap.summary;
+
+        pMl.textContent = ML_HOURLY.length === 24
+            ? '🤖 ML estimate at this hour: ' + ML_HOURLY[hour] + '% of incidents violent'
+            : '';
+
+        // recolour the map + any drawn route
+        ROUTE_COLOR = snap.map_color;
+        riskCircle.setStyle({ color: snap.map_color, fillColor: snap.map_color });
+        if (routeLine) routeLine.setStyle({ color: snap.map_color });
+        legendLine.style.background = snap.map_color;
+        legendRisk.textContent = snap.risk_level;
+
+        // highlight the table row
+        document.querySelectorAll('.time-table tr[data-period]').forEach(function (row) {
+            row.classList.toggle('selected-row', row.dataset.period === period);
+        });
+
+        // highlight the bar for the chosen period
+        if (periodChart) {
+            var ds = periodChart.data.datasets[0];
+            ds.backgroundColor = periodChart._order.map(function (p) { return PERIODS[p].map_color + (p === period ? 'ff' : '55'); });
+            ds.borderWidth = periodChart._order.map(function (p) { return p === period ? 3 : 1; });
+            periodChart.update('none');
+        }
+
+        // move the dot on the ML curve
+        if (mlChart) {
+            var d0 = mlChart.data.datasets[0];
+            d0.pointRadius = ML_HOURLY.map(function (_, h) { return h === hour ? 7 : 2; });
+            d0.pointBackgroundColor = ML_HOURLY.map(function (_, h) { return h === hour ? '#fff' : '#e94560'; });
+            mlChart.update('none');
+        }
     }
 
-    previewScore.textContent = snap.score;
-    previewScore.style.color = snap.map_color;
-    previewLabel.textContent = `${snap.risk_level} Risk · ${snap.risk_score}/100`;
-    previewSummary.textContent = snap.summary;
+    slider.addEventListener('input', function (e) { apply(parseInt(e.target.value, 10)); });
 
-    // Recolor the risk circle + any drawn route to match this period
-    riskCircle.setStyle({ color: snap.map_color, fillColor: snap.map_color });
-    ROUTE_COLOR = snap.map_color;
+    document.getElementById('resetTimeBtn').addEventListener('click', function () {
+        slider.value = CURRENT_HOUR;
+        apply(CURRENT_HOUR);
+    });
 
-    if (routeLayer) {
-        routeLayer.setStyle({ color: snap.map_color });
+    slider.value = CURRENT_HOUR;
+    apply(CURRENT_HOUR);
+})();
+
+/* ================================================================
+   PERSONAL TOUCHES — stored only in this browser (localStorage)
+================================================================ */
+(function () {
+    var CK = 'safepath_checklist_v1';
+    var RK = 'safepath_recent_v1';
+
+    function read(key) { try { return JSON.parse(localStorage.getItem(key)) || []; } catch (e) { return []; } }
+    function write(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+
+    // ----- checklist -----
+    var boxes = document.querySelectorAll('.tip-check');
+    var saved = read(CK);
+    var count = document.getElementById('checkCount');
+    var bar = document.getElementById('checkProgress');
+
+    function refresh() {
+        var done = 0;
+        boxes.forEach(function (b) {
+            b.closest('.check-item').classList.toggle('done', b.checked);
+            if (b.checked) done++;
+        });
+        count.textContent = done + '/' + boxes.length;
+        bar.style.width = (boxes.length ? done / boxes.length * 100 : 0) + '%';
     }
 
-    if (legendRouteLine) legendRouteLine.style.background = snap.map_color;
-    if (legendRiskLabel) legendRiskLabel.textContent = snap.risk_level;
-
-    document.querySelectorAll('.time-table tr[data-period]').forEach(row => {
-        row.classList.toggle('selected-row', row.dataset.period === period);
+    boxes.forEach(function (b) {
+        b.checked = saved.indexOf(b.dataset.tip) !== -1;
+        b.addEventListener('change', function () {
+            var now = [];
+            boxes.forEach(function (x) { if (x.checked) now.push(x.dataset.tip); });
+            var others = saved.filter(function (t) {
+                return !Array.prototype.some.call(boxes, function (x) { return x.dataset.tip === t; });
+            });
+            saved = others.concat(now);
+            write(CK, saved);
+            refresh();
+        });
     });
-}
+    refresh();
 
-if (timeSlider) {
+    // ----- remember this search for the homepage -----
+    var recent = read(RK).filter(function (r) { return r.query.toLowerCase() !== SEARCH.query.toLowerCase(); });
+    recent.unshift({ query: SEARCH.query, city: SEARCH.city, score: SEARCH.score });
+    write(RK, recent.slice(0, 5));
 
-    timeSlider.addEventListener('input', (e) => {
-        applyTimePreview(parseInt(e.target.value, 10));
+    // ----- copy link -----
+    document.getElementById('copyBtn').addEventListener('click', function () {
+        var btn = this;
+        function done() { var old = btn.innerHTML; btn.innerHTML = '<i class="fas fa-check me-1"></i> Copied!'; setTimeout(function () { btn.innerHTML = old; }, 1600); }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(location.href).then(done, function () { window.prompt('Copy this link:', location.href); });
+        } else {
+            window.prompt('Copy this link:', location.href);
+        }
     });
-
-    resetTimeBtn.addEventListener('click', () => {
-        timeSlider.value = CURRENT_HOUR;
-        applyTimePreview(CURRENT_HOUR);
-    });
-
-    timeSlider.value = CURRENT_HOUR;
-    applyTimePreview(CURRENT_HOUR);
-}
-
+})();
 </script>
 
 </body>

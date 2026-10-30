@@ -1,0 +1,25 @@
+{
+  "model": "Random Forest classifier",
+  "target": "incident is a violent crime",
+  "features": [
+    "City",
+    "Hour of day",
+    "Day of week",
+    "Month"
+  ],
+  "n_records": 15840,
+  "n_train": 12672,
+  "n_test": 3168,
+  "violent_base_rate_pct": 23.9,
+  "accuracy": 0.761,
+  "baseline_accuracy": 0.761,
+  "roc_auc": 0.485,
+  "feature_importances": {
+    "City": 0.2932,
+    "Hour of day": 0.312,
+    "Day of week": 0.1752,
+    "Month": 0.2196
+  },
+  "sklearn_version": "1.9.0",
+  "trained_at_utc": "2026-10-30 15:02"
+}

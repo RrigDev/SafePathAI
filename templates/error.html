@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} — SafePath AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/theme.css') }}" rel="stylesheet">
+</head>
+<body>
+<div class="fx" aria-hidden="true">
+    <div class="fx-grid"></div>
+    <div class="fx-glow fx-glow-1"></div>
+    <div class="fx-glow fx-glow-2"></div>
+</div>
+<main class="page-wrap d-flex align-items-center justify-content-center" style="min-height:100vh; padding:24px;">
+    <div class="card-glass text-center" style="max-width:480px;">
+        <div style="font-size:3rem;">🛡️</div>
+        <div class="accent" style="font-size:3.2rem; font-weight:800; line-height:1;">{{ code }}</div>
+        <h1 style="font-size:1.3rem; margin-top:8px;">{{ title }}</h1>
+        <p class="t2 mt-2">{{ message }}</p>
+        <a href="/" class="btn-accent d-inline-block text-decoration-none mt-2" style="width:auto; padding:11px 26px;">Back to search</a>
+    </div>
+</main>
+</body>
+</html>

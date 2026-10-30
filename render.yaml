@@ -2,9 +2,14 @@ services:
   - type: web
     name: safepath-ai
     runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --timeout 120 --workers 1
     plan: free
+    # Re-train the ML model during the build so it always matches the
+    # scikit-learn version installed on Render. If training can't run
+    # (e.g. data file missing) the build still succeeds and the app simply
+    # runs without the ML card.
+    buildCommand: pip install -r requirements.txt && (python train_model.py || echo "ML training skipped")
+    startCommand: gunicorn app:app --timeout 120 --workers 1 --threads 4
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9

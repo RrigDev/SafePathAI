@@ -1,14 +1,32 @@
-from flask import Flask, render_template, request
-import requests
-import pandas as pd
+"""
+SafePath AI — Flask backend.
+
+Everything shown to the user comes from one of three places:
+
+  1. crime_risk_summary.csv  (built by risk_engine.py from the real dataset)
+  2. the trained ML model    (built by train_model.py, optional)
+  3. OpenStreetMap services  (geocoding, nearby places, walking routes)
+
+Nothing is invented. Where data does not exist (street-level incident
+coordinates), the app says so instead of faking it.
+"""
+
+import json
 import math
 import re
+import threading
+import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from city_utils import normalize_city, CITY_ALIASES
+import pandas as pd
+import requests
+from flask import Flask, jsonify, redirect, render_template, request
+
+from city_utils import CITY_ALIASES, normalize_city
 
 app = Flask(__name__)
 
@@ -19,25 +37,97 @@ app = Flask(__name__)
 
 GEOCODE_URL = "https://nominatim.openstreetmap.org/search"
 REVERSE_GEOCODE_URL = "https://nominatim.openstreetmap.org/reverse"
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+PHOTON_URL = "https://photon.komoot.io/api/"
+
+OVERPASS_URLS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+]
 
 HEADERS = {
-    "User-Agent": "SafePathAI-StudentProject/1.0 (https://github.com/scrambledgamer2806-boop/SAFEPATH-AI)"
+    "User-Agent": (
+        "SafePathAI-StudentProject/2.0 "
+        "(https://github.com/scrambledgamer2806-boop/SAFEPATH-AI)"
+    )
 }
 
-# Default fallback center
 DEFAULT_LAT = 12.9716
 DEFAULT_LNG = 77.5946
 
-# India timezone
 INDIA_TIMEZONE = ZoneInfo("Asia/Kolkata")
 
-# Real risk dataset
-RISK_DATA_FILE = Path(
-    "crimes_indian_dataset/crime_risk_summary.csv"
-)
+RISK_DATA_FILE = Path("crimes_indian_dataset/crime_risk_summary.csv")
+MODEL_DIR = Path("model")
 
 TIME_PERIOD_ORDER = ["Morning", "Afternoon", "Evening", "Night"]
+
+PERIOD_HOURS = {
+    "Morning": "5 AM – 12 PM",
+    "Afternoon": "12 – 5 PM",
+    "Evening": "5 – 9 PM",
+    "Night": "9 PM – 5 AM",
+}
+
+# Same weights risk_engine.py uses — shown to the user in "Why this score".
+FREQUENCY_WEIGHT = 0.60
+SEVERITY_WEIGHT = 0.40
+
+CATEGORY_FIELDS = [
+    ("Violent crime", "violent_crimes"),
+    ("Theft", "theft"),
+    ("Robbery", "robbery"),
+    ("Vehicle theft", "vehicle_theft"),
+    ("Property crime", "property_crimes"),
+    ("Domestic violence", "domestic_violence"),
+]
+
+LEVEL_STYLE = {
+    "LOW": {
+        "css": "risk-low",
+        "color": "#28a745",
+        "summary": (
+            "Historical crime data indicates relatively lower risk "
+            "during this time of day."
+        ),
+        "tips": [
+            "Stay aware of your surroundings",
+            "Keep emergency contacts easy to reach",
+            "Keep valuables out of sight",
+            "Let someone know where you're headed",
+        ],
+    },
+    "MEDIUM": {
+        "css": "risk-medium",
+        "color": "#ffc107",
+        "summary": (
+            "Historical crime data indicates moderate risk during this "
+            "time of day. Exercise additional caution."
+        ),
+        "tips": [
+            "Prefer well-lit, busy roads",
+            "Avoid isolated areas when possible",
+            "Keep your phone charged and within reach",
+            "Share your live location with someone you trust",
+            "Keep valuables out of sight",
+        ],
+    },
+    "HIGH": {
+        "css": "risk-high",
+        "color": "#dc3545",
+        "summary": (
+            "Historical crime data indicates higher risk during this "
+            "time of day. Take additional precautions."
+        ),
+        "tips": [
+            "Prefer well-lit and populated roads",
+            "Avoid isolated areas when possible",
+            "Share your live location with someone you trust",
+            "Consider a trusted ride service instead of walking",
+            "Keep your phone charged and within reach",
+            "Save local emergency numbers before you set off",
+        ],
+    },
+}
 
 
 # ============================================================
@@ -46,33 +136,95 @@ TIME_PERIOD_ORDER = ["Morning", "Afternoon", "Evening", "Night"]
 
 print("Loading SafePath-AI risk data...")
 
-try:
+ROWS = {}          # (normalised city, period) -> row dict
+CITY_LABELS = {}   # normalised city -> display name
+META = {"records": 0, "cities": 0}
 
-    risk_df = pd.read_csv(RISK_DATA_FILE)
 
-    print(
-        f"Loaded {len(risk_df):,} city/time risk records."
+def load_risk_data():
+
+    try:
+        df = pd.read_csv(RISK_DATA_FILE)
+    except Exception as e:
+        print("ERROR: could not load risk dataset:", e)
+        return
+
+    required = {"city", "time_period", "risk_score", "risk_level", "total_crimes"}
+
+    if not required.issubset(df.columns):
+        print("ERROR: risk dataset is missing columns:", required - set(df.columns))
+        return
+
+    df["_city"] = df["city"].map(normalize_city)
+    df["_period"] = df["time_period"].astype(str).str.strip().str.title()
+    df["risk_level"] = df["risk_level"].astype(str).str.upper()
+
+    # incidents with no usable time ("Unknown") can't be placed in a period
+    df = df[df["_period"].isin(TIME_PERIOD_ORDER)]
+
+    # if two spellings of one city both exist, keep the larger group
+    df = (
+        df.sort_values("total_crimes", ascending=False)
+        .drop_duplicates(["_city", "_period"])
     )
 
-except Exception as e:
+    for record in df.to_dict("records"):
+        ROWS[(record["_city"], record["_period"])] = record
+        CITY_LABELS.setdefault(record["_city"], str(record["city"]).strip().title())
 
-    print("ERROR: Could not load risk dataset.")
-    print(e)
+    META["records"] = int(df["total_crimes"].sum())
+    META["cities"] = len({c for c, _ in ROWS})
 
-    risk_df = pd.DataFrame()
+    print(f"Loaded {len(ROWS)} city/time risk records for {META['cities']} cities.")
+
+
+load_risk_data()
+
+
+def num(row, key, default=0):
+
+    try:
+        value = float(row.get(key, default))
+        return default if math.isnan(value) else value
+    except (TypeError, ValueError):
+        return default
+
+
+def known_cities():
+    return {c for c, _ in ROWS}
+
+
+def supported_city_names():
+    return sorted(CITY_LABELS.values())
+
+
+PREFERRED_CITIES = [
+    "Bangalore", "Delhi", "Mumbai", "Chennai", "Kolkata",
+    "Hyderabad", "Pune", "Ahmedabad", "Jaipur", "Lucknow",
+]
+
+
+def quick_city_names():
+
+    """Well-known cities first, then the rest — for the homepage chips."""
+
+    names = supported_city_names()
+    first = [c for c in PREFERRED_CITIES if c in names]
+    rest = [c for c in names if c not in first]
+
+    return (first + rest)[:10]
 
 
 # ============================================================
-# LOAD ML MODEL (optional — app still works without it)
+# LOAD ML MODEL (optional — the app works fine without it)
 # ============================================================
 
 ML_AVAILABLE = False
+ML_METRICS = {}
 
 try:
 
     import joblib
-
-    MODEL_DIR = Path("model")
 
     ml_model = joblib.load(MODEL_DIR / "violent_predictor.joblib")
     city_encoder = joblib.load(MODEL_DIR / "city_encoder.joblib")
@@ -80,28 +232,54 @@ try:
 
     ML_AVAILABLE = True
 
-    print("ML model loaded — ML Insight panel enabled.")
+    try:
+        ML_METRICS = json.loads((MODEL_DIR / "metrics.json").read_text())
+    except Exception:
+        ML_METRICS = {}
+
+    print("ML model loaded.")
 
 except Exception as e:
 
-    print(
-        "ML model not found or failed to load "
-        "(run train_model.py to enable it). Continuing without it."
-    )
-    print(e)
+    print("ML model not loaded (run train_model.py to enable it):", e)
 
 
 # ============================================================
-# KNOWN CITIES — the cities our dataset actually covers.
-# Used so a typed city name always resolves to a dataset city
-# even if the geocoder returns it under an odd address key
-# (e.g. "Delhi" often has no "city" field at all).
+# TINY TTL CACHE — keeps the free public APIs happy and the
+# app fast when people search the same place twice.
 # ============================================================
 
-PHOTON_URL = "https://photon.komoot.io/api/"
+_cache = {}
+_cache_lock = threading.Lock()
 
-# Approximate city centres, used ONLY as a last-resort fallback when
-# every online geocoder is unreachable, so a plain city name still works.
+
+def cache_get(key):
+
+    with _cache_lock:
+        hit = _cache.get(key)
+
+    if hit and hit[0] > time.time():
+        return hit[1]
+
+    return None
+
+
+def cache_put(key, value, ttl):
+
+    with _cache_lock:
+
+        if len(_cache) > 500:
+            _cache.clear()
+
+        _cache[key] = (time.time() + ttl, value)
+
+
+# ============================================================
+# CITY DETECTION
+# ============================================================
+
+# Approximate city centres. Used ONLY as a last resort when every online
+# geocoder is unreachable, so a plain city name still works.
 CITY_CENTERS = {
     "agra": (27.1767, 78.0081), "ahmedabad": (23.0225, 72.5714),
     "bangalore": (12.9716, 77.5946), "bhopal": (23.2599, 77.4126),
@@ -121,23 +299,9 @@ CITY_CENTERS = {
 }
 
 
-def known_cities():
-
-    if risk_df.empty:
-        return set()
-
-    return {
-        normalize_city(c)
-        for c in risk_df["city"].astype(str).unique()
-    }
-
-
 def find_known_city(*texts):
 
-    """
-    Look for a dataset city name (or a known alias like Bengaluru /
-    Bombay) as a whole word inside any of the given text snippets.
-    """
+    """Find a dataset city (or alias such as Bengaluru) as a whole word."""
 
     cities = known_cities()
 
@@ -153,9 +317,7 @@ def find_known_city(*texts):
         if target in cities
     })
 
-    # longest names first so "bengaluru urban" beats "bengaluru"
     for name in sorted(candidates, key=len, reverse=True):
-
         if re.search(rf"\b{re.escape(name)}\b", haystack):
             return candidates[name]
 
@@ -165,8 +327,9 @@ def find_known_city(*texts):
 def city_from_address(address, display_name="", typed=""):
 
     """
-    Work out the dataset city from a geocoder address, trying every
-    field a city can hide in, then falling back to text matching.
+    Work out which dataset city a geocoder result belongs to. Cities can
+    hide under many address keys (Delhi often has no "city" at all), so we
+    try them all, then fall back to matching the text.
     """
 
     cities = known_cities()
@@ -175,7 +338,6 @@ def city_from_address(address, display_name="", typed=""):
         "city", "town", "municipality", "city_district",
         "village", "county", "state_district", "state",
     ):
-
         value = normalize_city(address.get(key, ""))
 
         if value and (not cities or value in cities):
@@ -186,10 +348,9 @@ def city_from_address(address, display_name="", typed=""):
     if found:
         return found
 
-    # nothing matched the dataset — return best guess so the error
+    # nothing matched our dataset — return a best guess so the error
     # message can name the place that has no data
     for key in ("city", "town", "municipality", "village", "county"):
-
         value = normalize_city(address.get(key, ""))
 
         if value:
@@ -236,7 +397,7 @@ def _nominatim_search(location_str):
 
 def _photon_search(location_str):
 
-    """Backup geocoder in case Nominatim blocks / rate-limits the server."""
+    """Backup geocoder, used if Nominatim blocks or rate-limits the server."""
 
     response = requests.get(
         PHOTON_URL,
@@ -263,7 +424,8 @@ def _photon_search(location_str):
     }
 
     display = ", ".join(
-        p for p in (props.get("name"), props.get("city"), props.get("state")) if p
+        part for part in (props.get("name"), props.get("city"), props.get("state"))
+        if part
     ) or location_str
 
     return float(lat), float(lng), display, address
@@ -271,58 +433,43 @@ def _photon_search(location_str):
 
 def geocode_location(location_str):
 
-    """
-    Convert a typed place into coordinates + dataset city.
+    """Returns: lat, lng, display_name, city, found"""
 
-    Tries Nominatim, then Photon, then (for plain city names that our
-    dataset covers) a built-in city-centre fallback.
+    key = ("geo", location_str.strip().lower())
+    cached = cache_get(key)
 
-    Returns: lat, lng, display_name, city, found
-    """
+    if cached:
+        return cached
 
     for search in (_nominatim_search, _photon_search):
 
         try:
-
             hit = search(location_str)
 
             if hit:
-
                 lat, lng, display_name, address = hit
-
                 city = city_from_address(address, display_name, location_str)
-
-                return lat, lng, display_name, city, True
+                result = (lat, lng, display_name, city, True)
+                cache_put(key, result, 6 * 3600)
+                return result
 
         except Exception as e:
-
             print(f"Geocoding error ({search.__name__}):", e)
 
-    # Last resort: user typed a city we have data for, but every online
-    # geocoder failed. Use the known city centre rather than failing.
+    # last resort: a plain city name we have data for
     typed_city = find_known_city(location_str)
 
     if typed_city and typed_city in CITY_CENTERS:
-
         lat, lng = CITY_CENTERS[typed_city]
-
         print(f"Geocoders unreachable — using built-in centre for {typed_city}")
-
         return lat, lng, f"{typed_city.title()} (city centre)", typed_city, True
 
     return DEFAULT_LAT, DEFAULT_LNG, location_str, "", False
 
 
-# ============================================================
-# REVERSE GEOCODING
-# ============================================================
-
 def reverse_geocode_city(lat, lng):
 
-    """Convert GPS coordinates into a dataset city name."""
-
     try:
-
         response = requests.get(
             REVERSE_GEOCODE_URL,
             params={
@@ -337,7 +484,6 @@ def reverse_geocode_city(lat, lng):
         )
 
         response.raise_for_status()
-
         result = response.json()
 
         return city_from_address(
@@ -346,351 +492,355 @@ def reverse_geocode_city(lat, lng):
         )
 
     except Exception as e:
-
         print("Reverse geocoding error:", e)
-
         return ""
 
 
-# ============================================================
-# GPS INPUT
-# ============================================================
-
 def parse_gps_input(location_str):
 
-    """Parse raw "lat,lng" input. Returns (lat, lng) or None."""
-
-    if "," not in location_str:
-
-        return None
+    """Parse raw 'lat,lng' input. Returns (lat, lng) or None."""
 
     parts = location_str.split(",")
 
     if len(parts) != 2:
-
         return None
 
     try:
-
         lat = float(parts[0].strip())
         lng = float(parts[1].strip())
-
-        if -90 <= lat <= 90 and -180 <= lng <= 180:
-
-            return lat, lng
-
     except ValueError:
-
         return None
+
+    if -90 <= lat <= 90 and -180 <= lng <= 180:
+        return lat, lng
 
     return None
 
 
 # ============================================================
-# CURRENT TIME PERIOD
+# TIME
 # ============================================================
 
 def get_current_time_period():
 
     now = datetime.now(INDIA_TIMEZONE)
-
     hour = now.hour
 
     if 5 <= hour < 12:
         period = "Morning"
-
     elif 12 <= hour < 17:
         period = "Afternoon"
-
     elif 17 <= hour < 21:
         period = "Evening"
-
     else:
         period = "Night"
 
     return now, period
 
 
+def fmt_hour(hour):
+
+    h12 = hour % 12 or 12
+
+    return f"{h12} {'AM' if hour < 12 else 'PM'}"
+
+
+def ordinal(n):
+
+    if 10 <= n % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+
+    return f"{n}{suffix}"
+
+
 # ============================================================
-# REAL CRIME RISK LOOKUP
+# RISK DATA VIEWS
 # ============================================================
+
+def period_view(row):
+
+    level = str(row["risk_level"]).upper()
+    style = LEVEL_STYLE.get(level, LEVEL_STYLE["HIGH"])
+
+    risk_score = round(num(row, "risk_score"), 1)
+
+    return {
+        "period": row["_period"],
+        "hours": PERIOD_HOURS.get(row["_period"], ""),
+        "score": round(max(0, min(100, 100 - risk_score))),
+        "risk_score": risk_score,
+        "risk_level": level.title(),
+        "risk_class": style["css"],
+        "map_color": style["color"],
+        "summary": style["summary"],
+        "total_crimes": int(num(row, "total_crimes")),
+    }
+
 
 def get_crime_data(city, time_period):
 
-    """
-    Look up real historical crime statistics from
-    crime_risk_summary.csv.
+    row = ROWS.get((normalize_city(city), time_period))
 
-    IMPORTANT: this is city + time based historical risk.
-    It is NOT street-level crime prediction because the
-    source dataset does not contain crime coordinates.
-    """
-
-    if risk_df.empty:
-
+    if row is None:
         return None
+
+    view = period_view(row)
+    style = LEVEL_STYLE.get(str(row["risk_level"]).upper(), LEVEL_STYLE["HIGH"])
+
+    view["tips"] = style["tips"]
+
+    view["stats"] = {
+        "total_crimes": int(num(row, "total_crimes")),
+        "violent_crimes": int(num(row, "violent_crimes")),
+        "theft": int(num(row, "theft")),
+        "robbery": int(num(row, "robbery")),
+        "vehicle": int(num(row, "vehicle_theft")),
+        "property_crimes": int(num(row, "property_crimes")),
+        "domestic_violence": int(num(row, "domestic_violence")),
+    }
+
+    return view
+
+
+def get_all_periods(city):
 
     city = normalize_city(city)
-
-    matches = risk_df[
-        (risk_df["city"].astype(str).str.strip().str.lower() == city)
-        &
-        (risk_df["time_period"].astype(str).str.strip().str.lower() == time_period.lower())
-    ]
-
-    if matches.empty:
-
-        return None
-
-    row = matches.iloc[0]
-
-    risk_score = float(row["risk_score"])
-    risk_level = str(row["risk_level"]).upper()
-
-    safety_score = round(max(0, min(100, 100 - risk_score)))
-
-    if risk_level == "LOW":
-
-        risk_class = "risk-low"
-        map_color = "#28a745"
-
-        summary = (
-            "Historical crime data indicates "
-            "relatively lower risk during this time."
-        )
-
-        tips = [
-            "Stay aware of your surroundings",
-            "Keep emergency contacts accessible",
-            "Keep valuables secure",
-            "Continue using normal safety precautions",
-        ]
-
-    elif risk_level == "MEDIUM":
-
-        risk_class = "risk-medium"
-        map_color = "#ffc107"
-
-        summary = (
-            "Historical crime data indicates "
-            "moderate risk during this time. "
-            "Exercise additional caution."
-        )
-
-        tips = [
-            "Prefer well-lit roads",
-            "Avoid isolated areas when possible",
-            "Keep your phone accessible",
-            "Consider travelling with others at night",
-        ]
-
-    else:
-
-        risk_class = "risk-high"
-        map_color = "#dc3545"
-
-        summary = (
-            "Historical crime data indicates "
-            "higher risk during this time. "
-            "Take additional precautions."
-        )
-
-        tips = [
-            "Prefer well-lit and populated roads",
-            "Avoid isolated areas when possible",
-            "Share your trip with someone you trust",
-            "Consider using a trusted transport service",
-        ]
-
-    stats = {
-        "total_crimes": int(row["total_crimes"]),
-        "violent_crimes": int(row["violent_crimes"]),
-        "theft": int(row["theft"]),
-        "robbery": int(row["robbery"]),
-        "vehicle": int(row["vehicle_theft"]),
-        "property_crimes": int(row["property_crimes"]),
-        "domestic_violence": int(row["domestic_violence"]),
-    }
 
     return {
-        "score": safety_score,
-        "risk_score": round(risk_score, 1),
-        "risk_level": risk_level.title(),
-        "risk_class": risk_class,
-        "map_color": map_color,
-        "summary": summary,
-        "tips": tips,
-        "city": str(row["city"]),
-        "time_period": str(row["time_period"]),
-        "stats": stats,
+        period: period_view(ROWS[(city, period)])
+        for period in TIME_PERIOD_ORDER
+        if (city, period) in ROWS
     }
 
 
-# ============================================================
-# WHY IS THIS AREA RISKY? — breakdown of the stats we already
-# have, turned into a readable, ranked explanation.
-# ============================================================
+def get_score_components(city, period):
 
-def get_risk_breakdown(stats):
+    """
+    The exact recipe risk_engine.py uses:
+        risk = 0.60 x frequency score + 0.40 x severity score
+    Returned so the page can show *why* the number is what it is.
+    """
 
-    total = stats["total_crimes"] or 1
+    row = ROWS.get((normalize_city(city), period))
 
-    items = [
-        ("Violent crime", stats["violent_crimes"]),
-        ("Theft", stats["theft"]),
-        ("Robbery", stats["robbery"]),
-        ("Vehicle theft", stats["vehicle"]),
-        ("Property crime", stats["property_crimes"]),
-        ("Domestic violence", stats["domestic_violence"]),
-    ]
+    if row is None:
+        return None
 
-    breakdown = [
-        {
-            "label": label,
-            "count": count,
-            "pct": round((count / total) * 100, 1),
-        }
-        for label, count in items
-    ]
+    try:
+        freq = float(row["frequency_score"])
+        sev = float(row["severity_score"])
+        ratio = float(row["frequency_ratio"])
+        per_crime = float(row["severity_per_crime"])
+    except (KeyError, TypeError, ValueError):
+        return None
 
-    breakdown.sort(key=lambda x: x["count"], reverse=True)
+    if any(math.isnan(x) for x in (freq, sev, ratio, per_crime)):
+        return None
 
-    return breakdown
+    freq_part = freq * FREQUENCY_WEIGHT
+    sev_part = sev * SEVERITY_WEIGHT
+    total = max(freq_part + sev_part, 0.1)
+
+    return {
+        "frequency_score": round(freq, 1),
+        "severity_score": round(sev, 1),
+        "frequency_points": round(freq_part, 1),
+        "severity_points": round(sev_part, 1),
+        "frequency_share": round(freq_part / total * 100),
+        "severity_share": round(sev_part / total * 100),
+        "ratio": round(ratio, 2),
+        "severity_per_crime": round(per_crime, 1),
+    }
 
 
-# ============================================================
-# BEST TIME TO TRAVEL — compare all 4 time periods for a city
-# ============================================================
+def get_crime_profile(city, period):
 
-def get_best_time_comparison(city, current_period):
-
-    if risk_df.empty:
-
-        return [], None
+    """
+    Share of this period's incidents in each category, next to the share
+    across the whole day for the same city — so the page can show what
+    makes this time of day different.
+    """
 
     city = normalize_city(city)
+    now_row = ROWS.get((city, period))
 
-    matches = risk_df[
-        risk_df["city"].astype(str).str.strip().str.lower() == city
+    if now_row is None:
+        return []
+
+    rows = [ROWS[(city, p)] for p in TIME_PERIOD_ORDER if (city, p) in ROWS]
+
+    total_now = num(now_row, "total_crimes")
+    total_all = sum(num(r, "total_crimes") for r in rows)
+
+    if not total_now:
+        return []
+
+    profile = []
+
+    for label, field in CATEGORY_FIELDS:
+
+        count = int(num(now_row, field))
+        share_now = count / total_now * 100
+
+        if len(rows) >= 2 and total_all:
+            share_all = sum(num(r, field) for r in rows) / total_all * 100
+            diff = round(share_now - share_all, 1)
+            share_all = round(share_all, 1)
+        else:
+            share_all, diff = None, None
+
+        profile.append({
+            "label": label,
+            "count": count,
+            "pct": round(share_now, 1),
+            "share_all": share_all,
+            "diff": diff,
+        })
+
+    profile.sort(key=lambda item: item["count"], reverse=True)
+
+    return profile
+
+
+def get_best_time_rows(periods, current_period):
+
+    rows = [
+        {
+            "period": v["period"],
+            "hours": v["hours"],
+            "risk_score": v["risk_score"],
+            "risk_level": v["risk_level"],
+            "map_color": v["map_color"],
+            "total_crimes": v["total_crimes"],
+            "is_current": v["period"] == current_period,
+        }
+        for v in periods.values()
     ]
 
-    rows = []
-
-    for period in TIME_PERIOD_ORDER:
-
-        match = matches[
-            matches["time_period"].astype(str).str.strip().str.lower()
-            == period.lower()
-        ]
-
-        if not match.empty:
-
-            r = match.iloc[0]
-
-            rows.append({
-                "period": period,
-                "risk_score": round(float(r["risk_score"]), 1),
-                "risk_level": str(r["risk_level"]).title(),
-                "is_current": period.lower() == current_period.lower(),
-            })
-
     if not rows:
-        return [], None
+        return [], None, None
 
     best = min(rows, key=lambda r: r["risk_score"])
+    worst = max(rows, key=lambda r: r["risk_score"])
 
-    return rows, best
+    return rows, best, worst
+
+
+def build_assessment(city, current, periods, best, worst):
+
+    """Plain-English summary, written only from numbers we actually have."""
+
+    if not periods:
+        return ""
+
+    ranked = sorted(periods.values(), key=lambda v: v["risk_score"])
+    position = next(
+        (i for i, v in enumerate(ranked, start=1) if v["period"] == current["period"]),
+        None,
+    )
+
+    text = (
+        f"{city.title()} shows {current['risk_level'].lower()} historical risk "
+        f"during the {current['period'].lower()} period "
+        f"(safety score {current['score']}/100)."
+    )
+
+    if len(ranked) >= 2 and position:
+
+        if position == 1:
+            text += f" It is the historically safest part of the day in {city.title()}."
+        elif position == len(ranked):
+            text += (
+                f" It is the historically riskiest part of the day — "
+                f"{best['period']} is safer ({best['risk_score']}/100)."
+            )
+        else:
+            text += (
+                f" It ranks {ordinal(position)} safest of {len(ranked)} periods; "
+                f"{best['period']} is the safest ({best['risk_score']}/100)."
+            )
+
+    return text
 
 
 # ============================================================
-# ALL-PERIODS SNAPSHOT — full risk data for every time period
-# of a city, in one payload. Powers the client-side time-slider
-# so dragging it recolors the map/score instantly with no extra
-# network round-trip, using only real precomputed data (no
-# interpolation or invented numbers between periods).
+# MACHINE LEARNING
 # ============================================================
 
-def get_all_periods_snapshot(city):
+def get_ml_insight(city, now):
 
-    snapshot = {}
-
-    for period in TIME_PERIOD_ORDER:
-
-        data = get_crime_data(city, period)
-
-        if data is None:
-            continue
-
-        snapshot[period] = {
-            "period": period,
-            "score": data["score"],
-            "risk_score": data["risk_score"],
-            "risk_level": data["risk_level"],
-            "risk_class": data["risk_class"],
-            "map_color": data["map_color"],
-            "summary": data["summary"],
-        }
-
-    return snapshot
-
-
-# ============================================================
-# ML INSIGHT — genuine model prediction, separate from the
-# statistical risk score above.
-# ============================================================
-
-def get_ml_insight(city, current_time):
+    """
+    Hour-by-hour estimate of the share of incidents that are violent for
+    this city / weekday / month, from the trained Random Forest.
+    """
 
     if not ML_AVAILABLE:
         return None
 
     try:
+        city = normalize_city(city)
+        day = now.strftime("%A")
 
-        city_norm = normalize_city(city)
-
-        if city_norm not in city_encoder.classes_:
+        if city not in city_encoder.classes_ or day not in day_encoder.classes_:
             return None
 
-        day_name = current_time.strftime("%A")
-
-        if day_name not in day_encoder.classes_:
-            return None
-
-        city_enc = city_encoder.transform([city_norm])[0]
-        day_enc = day_encoder.transform([day_name])[0]
-
-        features = [[city_enc, current_time.hour, day_enc, current_time.month]]
-
-        proba = ml_model.predict_proba(features)[0]
         classes = list(ml_model.classes_)
 
         if 1 not in classes:
             return None
 
-        violent_prob = round(proba[classes.index(1)] * 100, 1)
+        features = pd.DataFrame({
+            "city_enc": [int(city_encoder.transform([city])[0])] * 24,
+            "hour": list(range(24)),
+            "day_enc": [int(day_encoder.transform([day])[0])] * 24,
+            "month": [now.month] * 24,
+        })[["city_enc", "hour", "day_enc", "month"]]
 
-        feature_labels = ["City", "Hour of day", "Day of week", "Month"]
-        importances = dict(zip(feature_labels, ml_model.feature_importances_))
-        top_feature = max(importances, key=importances.get)
+        probs = ml_model.predict_proba(features)[:, classes.index(1)] * 100
+        hourly = [round(float(p), 1) for p in probs]
+
+        peak = max(range(24), key=lambda h: hourly[h])
+        calm = min(range(24), key=lambda h: hourly[h])
+        spread = round(hourly[peak] - hourly[calm], 1)
+
+        importances = ML_METRICS.get("feature_importances") or {}
+
+        top_feature = (
+            max(importances, key=importances.get) if importances else None
+        )
 
         return {
-            "violent_probability": violent_prob,
+            "now_pct": hourly[now.hour],
+            "hourly": hourly,
+            "peak_hour": fmt_hour(peak),
+            "peak_pct": hourly[peak],
+            "calm_hour": fmt_hour(calm),
+            "calm_pct": hourly[calm],
+            "spread": spread,
+            "weak_signal": spread < 3,
+            "weekday": day,
             "top_feature": top_feature,
+            "importances": sorted(
+                ({"label": k, "pct": round(v * 100, 1)} for k, v in importances.items()),
+                key=lambda item: -item["pct"],
+            ),
+            "metrics": ML_METRICS,
         }
 
     except Exception as e:
-
         print("ML insight error:", e)
         return None
 
 
 # ============================================================
-# REAL NEARBY PLACES (Overpass API) — replaces fake offsets
+# NEARBY PLACES (OpenStreetMap Overpass API)
 # ============================================================
 
 def haversine_km(lat1, lon1, lat2, lon2):
 
-    R = 6371.0
+    r = 6371.0
 
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
@@ -701,250 +851,303 @@ def haversine_km(lat1, lon1, lat2, lon2):
         + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
     )
 
-    return 2 * R * math.asin(math.sqrt(a))
+    return 2 * r * math.asin(math.sqrt(a))
 
 
-def get_nearby_amenity(lat, lng, tag_filter, label, radius=3000):
+def overpass_query(query):
+
+    """Returns a list of elements, or None if every server failed."""
+
+    for url in OVERPASS_URLS:
+        try:
+            response = requests.post(
+                url, data={"data": query}, headers=HEADERS, timeout=9
+            )
+            response.raise_for_status()
+            return response.json().get("elements", [])
+
+        except Exception as e:
+            print(f"Overpass error ({url}):", e)
+
+    return None
+
+
+def find_nearest(lat, lng, tag, radii, label):
 
     """
-    Query OpenStreetMap's Overpass API for real nearby places
-    (hospitals, police stations, transit stops) and return the
-    closest one, computed with an actual haversine distance —
-    not a hardcoded offset from the user's location.
+    Nearest OSM feature with the given tag. Searches small circles first and
+    widens only if nothing is found, so the nearest one is never missed just
+    because a large circle returned too many results.
     """
 
-    query = f"""
-    [out:json][timeout:6];
-    (
-      node[{tag_filter}](around:{radius},{lat},{lng});
-      way[{tag_filter}](around:{radius},{lat},{lng});
-    );
-    out center 10;
-    """
+    for radius in radii:
 
-    try:
-
-        response = requests.post(
-            OVERPASS_URL,
-            data={"data": query},
-            headers=HEADERS,
-            timeout=7,
+        query = (
+            "[out:json][timeout:8];"
+            f"nwr[{tag}](around:{radius},{lat},{lng});"
+            "out center 200;"
         )
 
-        response.raise_for_status()
+        elements = overpass_query(query)
 
-        elements = response.json().get("elements", [])
+        if elements is None:
+            return None  # service unreachable — don't keep retrying
 
-    except Exception as e:
+        best, best_dist = None, None
 
-        print(f"Overpass lookup failed ({label}):", e)
-        return None
+        for el in elements:
 
-    best = None
-    best_dist = None
+            if "lat" in el and "lon" in el:
+                elat, elon = el["lat"], el["lon"]
+            elif "center" in el:
+                elat, elon = el["center"]["lat"], el["center"]["lon"]
+            else:
+                continue
 
-    for el in elements:
+            dist = haversine_km(lat, lng, elat, elon)
 
-        if "lat" in el and "lon" in el:
-            elat, elon = el["lat"], el["lon"]
+            if best_dist is None or dist < best_dist:
+                best_dist = dist
+                best = {
+                    "lat": elat,
+                    "lng": elon,
+                    "name": el.get("tags", {}).get("name") or label,
+                    "distance_km": round(dist, 2),
+                }
 
-        elif "center" in el:
-            elat, elon = el["center"]["lat"], el["center"]["lon"]
+        if best:
+            return best
 
-        else:
-            continue
-
-        name = el.get("tags", {}).get("name", label)
-        dist = haversine_km(lat, lng, elat, elon)
-
-        if best_dist is None or dist < best_dist:
-            best_dist = dist
-            best = {
-                "lat": elat,
-                "lng": elon,
-                "name": name,
-                "distance_km": round(dist, 2),
-                "found": True,
-            }
-
-    return best
+    return None
 
 
 def get_destinations(lat, lng):
 
-    """
-    Real hospital, police station and transit stop nearest the
-    searched location. Falls back to a clearly-labelled demo
-    point (found=False) only if the live lookup fails, so the
-    UI never silently pretends a fake point is real.
-    """
+    key = ("dest", round(lat, 3), round(lng, 3))
+    cached = cache_get(key)
 
-    # Run all four lookups at the same time instead of one after another.
-    # Sequential calls could add up to >30s and get the request killed
-    # by gunicorn's default worker timeout.
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    if cached:
+        return cached
 
-        f_hosp = pool.submit(get_nearby_amenity, lat, lng, '"amenity"="hospital"', "Nearest Hospital")
-        f_pol = pool.submit(get_nearby_amenity, lat, lng, '"amenity"="police"', "Nearest Police Station")
-        f_bus = pool.submit(get_nearby_amenity, lat, lng, '"highway"="bus_stop"', "Nearest Bus Stop")
-        f_stn = pool.submit(get_nearby_amenity, lat, lng, '"railway"="station"', "Nearest Station", 5000)
+    def find_transit():
+        return (
+            find_nearest(lat, lng, '"highway"="bus_stop"', [500, 1200, 3000], "Bus stop")
+            or find_nearest(lat, lng, '"railway"="station"', [3000, 8000], "Station")
+        )
 
-        hospital = f_hosp.result()
-        police = f_pol.result()
-        transit = f_bus.result() or f_stn.result()
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        f_hospital = pool.submit(
+            find_nearest, lat, lng, '"amenity"="hospital"', [1500, 4000, 10000], "Hospital"
+        )
+        f_police = pool.submit(
+            find_nearest, lat, lng, '"amenity"="police"', [1500, 4000, 10000], "Police station"
+        )
+        f_transit = pool.submit(find_transit)
 
-    fallback_offsets = {
+        found = {
+            "hospital": f_hospital.result(),
+            "police": f_police.result(),
+            "transit": f_transit.result(),
+        }
+
+    fallback = {
         "hospital": (-0.022, 0.015, "Hospital (approximate — live lookup unavailable)"),
-        "police": (0.009, 0.021, "Police Station (approximate — live lookup unavailable)"),
-        "transit": (0.014, -0.010, "Transit Stop (approximate — live lookup unavailable)"),
+        "police": (0.009, 0.021, "Police station (approximate — live lookup unavailable)"),
+        "transit": (0.014, -0.010, "Transit stop (approximate — live lookup unavailable)"),
     }
 
-    def resolve(real, key, emoji, label):
+    emoji = {"hospital": "🏥", "police": "🚔", "transit": "🚌"}
+
+    result = {}
+
+    for kind in ("hospital", "police", "transit"):
+
+        real = found[kind]
 
         if real:
-            return {
+            result[kind] = {
                 "lat": real["lat"],
                 "lng": real["lng"],
                 "label": real["name"],
                 "distance_km": real["distance_km"],
                 "found": True,
-                "emoji": emoji,
+                "emoji": emoji[kind],
+            }
+        else:
+            dlat, dlng, note = fallback[kind]
+            result[kind] = {
+                "lat": lat + dlat,
+                "lng": lng + dlng,
+                "label": note,
+                "distance_km": None,
+                "found": False,
+                "emoji": emoji[kind],
             }
 
-        dlat, dlng, note = fallback_offsets[key]
+    if any(item["found"] for item in result.values()):
+        cache_put(key, result, 3600)
 
-        return {
-            "lat": lat + dlat,
-            "lng": lng + dlng,
-            "label": note,
-            "distance_km": None,
-            "found": False,
-            "emoji": emoji,
-        }
-
-    return {
-        "hospital": resolve(hospital, "hospital", "🏥", "Hospital"),
-        "police": resolve(police, "police", "🚔", "Police Station"),
-        "transit": resolve(transit, "transit", "🚌", "Transit Stop"),
-    }
+    return result
 
 
 # ============================================================
-# HOME PAGE
+# PAGES
 # ============================================================
+
+def render_home(error=None, query=""):
+
+    return render_template(
+        "index.html",
+        error=error,
+        query=query,
+        cities=supported_city_names(),
+        quick_cities=quick_city_names(),
+        meta=META,
+    )
+
 
 @app.route("/")
 def home():
+    return render_home()
 
-    return render_template("index.html")
 
-
-# ============================================================
-# ANALYZE LOCATION
-# ============================================================
-
-@app.route("/analyze", methods=["POST"])
+@app.route("/analyze", methods=["GET", "POST"])
 def analyze():
 
-    raw_input = request.form.get("location", "").strip()
+    raw_input = (request.values.get("location") or "").strip()[:200]
 
     if not raw_input:
 
-        return render_template(
-            "index.html",
-            error="Please enter a location.",
+        if request.method == "GET":
+            return redirect("/")
+
+        return render_home(error="Please enter a location.")
+
+    if not ROWS:
+        return render_home(
+            error=(
+                "The crime dataset isn't loaded on the server yet. "
+                "Check /health to see what's missing."
+            ),
+            query=raw_input,
         )
 
     gps = parse_gps_input(raw_input)
 
     if gps:
-
         lat, lng = gps
-
-        display_location = f"Your Location ({lat:.4f}, {lng:.4f})"
-
+        display_location = f"Your location ({lat:.4f}, {lng:.4f})"
         geocoded = True
-
         city = reverse_geocode_city(lat, lng)
-
     else:
-
-        (lat, lng, display_location, city, geocoded) = geocode_location(raw_input)
+        lat, lng, display_location, city, geocoded = geocode_location(raw_input)
 
     if not geocoded:
-
-        return render_template(
-            "index.html",
+        return render_home(
             error=(
-                "Could not find that location. "
-                "Please try a more specific address or place name."
+                "Couldn't find that location. Try a more specific place name, "
+                "or add the city — e.g. “Koramangala, Bangalore”."
             ),
+            query=raw_input,
         )
 
     if not city:
-
         city = find_known_city(raw_input)
 
     if not city:
-
-        return render_template(
-            "index.html",
+        return render_home(
             error=(
-                "We found the location, but couldn't tell which city it is in. "
-                "Try typing the city name too, e.g. \"Koramangala, Bangalore\"."
+                "We found the place but couldn't tell which city it's in. "
+                "Try adding the city name — e.g. “Koramangala, Bangalore”."
             ),
+            query=raw_input,
         )
 
-    current_time, time_period = get_current_time_period()
+    now, time_period = get_current_time_period()
 
     data = get_crime_data(city, time_period)
 
     if data is None:
-
-        return render_template(
-            "index.html",
+        covered = ", ".join(supported_city_names())
+        return render_home(
             error=(
-                f"We found {display_location}, but SafePath-AI currently "
-                f"does not have historical crime data for {city.title()}."
+                f"We don't have historical crime data for {city.title()} yet. "
+                f"Cities covered: {covered}."
             ),
+            query=raw_input,
         )
 
-    breakdown = get_risk_breakdown(data["stats"])
-    best_time_rows, best_time = get_best_time_comparison(city, time_period)
-    ml_insight = get_ml_insight(city, current_time)
-    destinations = get_destinations(lat, lng)
-    periods_snapshot = get_all_periods_snapshot(city)
+    periods = get_all_periods(city)
+    best_time_rows, best_time, worst_time = get_best_time_rows(periods, time_period)
 
     return render_template(
         "result.html",
+        query=raw_input,
         location=display_location,
         lat=lat,
         lng=lng,
-        geocoded=geocoded,
         city=city.title(),
         time_period=time_period,
-        current_time=current_time.strftime("%I:%M %p"),
-        current_hour=current_time.hour,
-        periods_snapshot=periods_snapshot,
-        score=data["score"],
-        risk_score=data["risk_score"],
-        risk_level=data["risk_level"],
-        risk_class=data["risk_class"],
-        map_color=data["map_color"],
-        summary=data["summary"],
-        tips=data["tips"],
-        stats=data["stats"],
-        breakdown=breakdown,
+        period_hours=PERIOD_HOURS[time_period],
+        current_time=now.strftime("%I:%M %p").lstrip("0"),
+        current_hour=now.hour,
+        data=data,
+        periods=periods,
         best_time_rows=best_time_rows,
         best_time=best_time,
-        ml_insight=ml_insight,
-        destinations=destinations,
+        worst_time=worst_time,
+        assessment=build_assessment(city, data, periods, best_time, worst_time),
+        components=get_score_components(city, time_period),
+        profile=get_crime_profile(city, time_period),
+        ml=get_ml_insight(city, now),
+        destinations=get_destinations(lat, lng),
+        meta=META,
+        ml_metrics=ML_METRICS,
+        ml_available=ML_AVAILABLE,
     )
 
 
-# ============================================================
-# RUN APPLICATION
-# ============================================================
+@app.route("/health")
+def health():
+
+    """Open /health on your live site to confirm data + model loaded."""
+
+    return jsonify(
+        status="ok" if ROWS else "no-data",
+        risk_rows=len(ROWS),
+        cities=META["cities"],
+        incidents_covered=META["records"],
+        ml_model_loaded=ML_AVAILABLE,
+        ml_metrics_loaded=bool(ML_METRICS),
+    )
+
+
+@app.errorhandler(404)
+def not_found(_):
+
+    return render_template(
+        "error.html",
+        code=404,
+        title="Page not found",
+        message="That page doesn't exist. Let's get you back to the search.",
+    ), 404
+
+
+@app.errorhandler(500)
+def server_error(_):
+
+    traceback.print_exc()
+
+    return render_template(
+        "error.html",
+        code=500,
+        title="Something went wrong",
+        message=(
+            "The server hit an unexpected problem while analysing that "
+            "location. Please try again."
+        ),
+    ), 500
+
 
 if __name__ == "__main__":
 

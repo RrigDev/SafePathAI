@@ -3,237 +3,291 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SafePath AI</title>
+    <meta name="description" content="SafePath AI — historical crime-risk insight for safer travel decisions.">
+    <meta name="theme-color" content="#0a0a14">
+    <title>SafePath AI — know before you go</title>
+
+    <script>document.documentElement.classList.add('js');</script>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/theme.css') }}" rel="stylesheet">
 
     <style>
-        body {
-            background: #0f0f1a;
-            color: #fff;
-            font-family: 'Segoe UI', sans-serif;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-        }
-
-        .hero-wrap {
-            width: 100%;
-            padding: 40px 0;
-        }
-
-        .brand {
-            color: #e94560;
-            font-weight: bold;
-            font-size: 1.6rem;
-        }
-
-        .tagline {
-            color: rgba(255,255,255,0.5);
-            font-size: 0.95rem;
-            margin-top: 4px;
-        }
-
-        .card-glass {
-            background: rgba(255,255,255,0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 16px;
-            padding: 32px;
-        }
-
-        .form-control {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.15);
-            color: #fff;
-            padding: 14px 16px;
-            border-radius: 10px;
-            font-size: 1rem;
-        }
-
-        .form-control:focus {
-            background: rgba(255,255,255,0.09);
-            border-color: #e94560;
-            color: #fff;
-            box-shadow: 0 0 0 3px rgba(233,69,96,0.15);
-        }
-
-        .form-control::placeholder {
-            color: rgba(255,255,255,0.3);
-        }
-
-        .btn-primary-custom {
-            background: #e94560;
-            border: none;
-            padding: 14px;
-            border-radius: 10px;
-            font-weight: 600;
-            color: #fff;
-            width: 100%;
-        }
-
-        .btn-primary-custom:hover {
-            background: #d63a53;
-            color: #fff;
-        }
-
-        .btn-secondary-custom {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.15);
-            padding: 14px;
-            border-radius: 10px;
-            color: #fff;
-            width: 100%;
-            font-weight: 500;
-        }
-
-        .btn-secondary-custom:hover {
-            background: rgba(255,255,255,0.1);
-            border-color: rgba(255,255,255,0.25);
-            color: #fff;
-        }
-
-        .feature-item {
-            background: rgba(255,255,255,0.04);
-            border-radius: 10px;
-            padding: 14px;
-            font-size: 0.85rem;
-            color: rgba(255,255,255,0.65);
-            text-align: center;
-            height: 100%;
-        }
-
-        .feature-item .emoji {
-            font-size: 1.4rem;
-            display: block;
-            margin-bottom: 6px;
-        }
-
-        .alert-custom {
-            background: rgba(220,53,69,0.12);
-            border: 1px solid #dc3545;
-            color: #ff8a95;
-            border-radius: 10px;
-            padding: 12px 16px;
-            font-size: 0.9rem;
-        }
-
-        .disclaimer {
-            font-size: 0.72rem;
-            color: rgba(255,255,255,0.3);
-            margin-top: 24px;
-            text-align: center;
-            line-height: 1.5;
-        }
+        .hero { max-width: 660px; margin: 0 auto; padding: 52px 20px 40px; }
+        .brand { font-weight: 800; font-size: 2rem; letter-spacing: -0.5px; }
+        .greeting { font-size: 0.85rem; color: var(--accent-2); letter-spacing: .3px; min-height: 22px; }
+        .tagline { font-size: 1.05rem; max-width: 470px; margin: 6px auto 8px; line-height: 1.5; }
+        .explainer { font-size: 0.86rem; max-width: 500px; margin: 0 auto 30px; line-height: 1.65; }
     </style>
 </head>
 <body>
 
-<div class="hero-wrap">
-    <div class="container" style="max-width: 560px;">
+<div class="fx" aria-hidden="true">
+    <div class="fx-grid"></div>
+    <div class="fx-glow fx-glow-1"></div>
+    <div class="fx-glow fx-glow-2"></div>
+    <div class="fx-glow fx-glow-3"></div>
+</div>
 
-        <div class="text-center mb-4">
-            <div class="brand">🛡️ SafePath AI</div>
-            <div class="tagline">Historical crime-risk insight for safer travel decisions</div>
-        </div>
-
-        <div class="card-glass">
-
-            {% if error %}
-            <div class="alert-custom mb-3">
-                ⚠️ {{ error }}
-            </div>
-            {% endif %}
-
-            <form method="POST" action="/analyze">
-
-                <label class="mb-2" style="color:rgba(255,255,255,0.6); font-size:0.9rem;">
-                    Where are you going?
-                </label>
-
-                <input
-                    type="text"
-                    name="location"
-                    id="locationInput"
-                    class="form-control mb-3"
-                    placeholder="e.g. Koramangala, Bengaluru"
-                    required
-                >
-
-                <button type="submit" class="btn-primary-custom mb-2">
-                    <i class="fas fa-shield-halved me-2"></i> Analyze Safety
-                </button>
-
-                <button type="button" class="btn-secondary-custom" onclick="useMyLocation()">
-                    <i class="fas fa-location-crosshairs me-2"></i> Use My Location
-                </button>
-
-            </form>
-
-        </div>
-
-        <div class="mt-4">
-            <div class="row g-2">
-                <div class="col-3">
-                    <div class="feature-item">
-                        <span class="emoji">🛡️</span>
-                        Check area safety
-                    </div>
-                </div>
-                <div class="col-3">
-                    <div class="feature-item">
-                        <span class="emoji">🗺️</span>
-                        Walking routes
-                    </div>
-                </div>
-                <div class="col-3">
-                    <div class="feature-item">
-                        <span class="emoji">⏰</span>
-                        Safer travel times
-                    </div>
-                </div>
-                <div class="col-3">
-                    <div class="feature-item">
-                        <span class="emoji">🤖</span>
-                        Explain the risk
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <p class="disclaimer">
-            SafePath AI is a student prototype. Risk scores come from a
-            historical crime dataset and reflect city-level, time-of-day
-            patterns — not real-time or street-level predictions.
-        </p>
-
+<!-- Loading screen shown while the analysis runs -->
+<div class="loading-overlay" id="loading" role="status" aria-live="polite">
+    <div class="loading-card">
+        <div class="loading-shield">🛡️</div>
+        <h5 class="mt-3 mb-4">Analyzing location…</h5>
+        <div class="load-step" data-step="0"><span class="mark">○</span> Finding your location</div>
+        <div class="load-step" data-step="1"><span class="mark">○</span> Reading historical crime data</div>
+        <div class="load-step" data-step="2"><span class="mark">○</span> Comparing times of day</div>
+        <div class="load-step" data-step="3"><span class="mark">○</span> Locating nearby hospitals &amp; police</div>
+        <div class="load-step" data-step="4"><span class="mark">○</span> Preparing your safety report</div>
     </div>
 </div>
 
-<script>
-function useMyLocation() {
+<main class="page-wrap hero">
 
-    if (!navigator.geolocation) {
-        alert("Geolocation is not supported by your browser.");
-        return;
+    <div class="text-center">
+        <div class="greeting" id="greeting"></div>
+        <div class="brand">🛡️ SafePath <span class="accent">AI</span></div>
+        <p class="tagline t2">See how safe an area has historically been — before you go, not after.</p>
+        <p class="explainer t3">
+            In plain terms: tell us where you're headed. We look through thousands of
+            real historical crime records and show you a simple safety score, explain
+            why the area got it, tell you if another time of day is historically safer,
+            and map a real walking route to the nearest hospital or police station.
+        </p>
+    </div>
+
+    <div class="card-glass">
+
+        {% if error %}
+        <div class="alert-sp mb-3" role="alert">⚠️ {{ error }}</div>
+        {% endif %}
+
+        <form method="GET" action="/analyze" id="searchForm" autocomplete="off">
+
+            <label for="locationInput" class="t2 mb-2" style="font-size:.9rem;">Where are you going?</label>
+
+            <input
+                type="text"
+                name="location"
+                id="locationInput"
+                class="form-control sp-input mb-3"
+                placeholder="e.g. Koramangala, Bangalore"
+                list="cityList"
+                value="{{ query or '' }}"
+                maxlength="200"
+                required
+            >
+
+            <datalist id="cityList">
+                {% for c in cities %}<option value="{{ c }}">{% endfor %}
+            </datalist>
+
+            <button type="submit" class="btn-accent mb-2">
+                <i class="fas fa-shield-halved me-2"></i> Analyze Safety
+            </button>
+
+            <button type="button" class="btn-ghost" id="gpsBtn">
+                <i class="fas fa-location-crosshairs me-2"></i> Use My Location
+            </button>
+        </form>
+
+        {% if quick_cities %}
+        <div class="mt-3">
+            <div class="t4" style="font-size:.72rem; margin-bottom:6px;">Try a city</div>
+            <div class="d-flex flex-wrap gap-2">
+                {% for c in quick_cities %}
+                <a class="chip quick-city" href="#" data-city="{{ c }}">{{ c }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="mt-3" id="recentBox" hidden>
+            <div class="d-flex justify-content-between align-items-center" style="margin-bottom:6px;">
+                <span class="t4" style="font-size:.72rem;">Recent searches (saved only in this browser)</span>
+                <a href="#" id="clearRecent" class="t4" style="font-size:.72rem;">Clear</a>
+            </div>
+            <div class="d-flex flex-wrap gap-2" id="recentList"></div>
+        </div>
+    </div>
+
+    <div class="text-center mt-3">
+        {% if meta and meta.records %}
+        <span class="pill"><i class="fas fa-database"></i>
+            {{ "{:,}".format(meta.records) }} real historical records · {{ meta.cities }} cities
+        </span>
+        {% else %}
+        <span class="pill"><i class="fas fa-database"></i> Built on real historical crime data</span>
+        {% endif %}
+    </div>
+
+    <div class="section-label">How it works</div>
+
+    <div class="step-row reveal"><div class="step-num">1</div><div>
+        <div class="t1" style="font-weight:600; font-size:.9rem;">You enter a location</div>
+        <div class="t3" style="font-size:.8rem;">Type a place, or let us use your GPS location.</div></div></div>
+    <div class="step-row reveal"><div class="step-num">2</div><div>
+        <div class="t1" style="font-weight:600; font-size:.9rem;">We check historical crime patterns</div>
+        <div class="t3" style="font-size:.8rem;">Your city and the time of day are matched against real data — not a live feed, not a guess.</div></div></div>
+    <div class="step-row reveal"><div class="step-num">3</div><div>
+        <div class="t1" style="font-weight:600; font-size:.9rem;">You get a safety score — explained</div>
+        <div class="t3" style="font-size:.8rem;">A 0–100 score, exactly how it was calculated, and when it's historically safer to travel.</div></div></div>
+    <div class="step-row reveal"><div class="step-num">4</div><div>
+        <div class="t1" style="font-weight:600; font-size:.9rem;">We map a real route</div>
+        <div class="t3" style="font-size:.8rem;">A real walking route (OpenStreetMap) to the nearest hospital, police station or transit stop.</div></div></div>
+
+    <div class="section-label">What you'll see</div>
+
+    <div class="row g-2">
+        <div class="col-6 col-md-4"><div class="feature-item reveal"><span class="emoji">🛡️</span>
+            <div class="t1" style="font-weight:600; font-size:.84rem;">Safety score</div>
+            <div class="t3" style="font-size:.73rem;">A simple 0–100 read on the area</div></div></div>
+        <div class="col-6 col-md-4"><div class="feature-item reveal"><span class="emoji">🧠</span>
+            <div class="t1" style="font-weight:600; font-size:.84rem;">Why this score</div>
+            <div class="t3" style="font-size:.73rem;">The actual formula, not a black box</div></div></div>
+        <div class="col-6 col-md-4"><div class="feature-item reveal"><span class="emoji">⏰</span>
+            <div class="t1" style="font-weight:600; font-size:.84rem;">Time-of-day slider</div>
+            <div class="t3" style="font-size:.73rem;">Drag the clock, watch risk change</div></div></div>
+        <div class="col-6 col-md-4"><div class="feature-item reveal"><span class="emoji">🤖</span>
+            <div class="t1" style="font-weight:600; font-size:.84rem;">ML insight</div>
+            <div class="t3" style="font-size:.73rem;">A trained model, with honest accuracy</div></div></div>
+        <div class="col-6 col-md-4"><div class="feature-item reveal"><span class="emoji">🗺️</span>
+            <div class="t1" style="font-weight:600; font-size:.84rem;">Real routes</div>
+            <div class="t3" style="font-size:.73rem;">To real hospitals &amp; police</div></div></div>
+        <div class="col-6 col-md-4"><div class="feature-item reveal"><span class="emoji">📋</span>
+            <div class="t1" style="font-weight:600; font-size:.84rem;">Printable report</div>
+            <div class="t3" style="font-size:.73rem;">Plus a personal safety checklist</div></div></div>
+    </div>
+
+    <p class="t4 text-center mt-4" style="font-size:.72rem; line-height:1.6;">
+        SafePath AI is a student prototype. Scores come from a historical crime dataset and
+        reflect city-level, time-of-day patterns — not real-time or street-level predictions.
+        It is a safety indicator, not a guarantee.
+    </p>
+</main>
+
+<script>
+(function () {
+
+    /* ---------- time-aware greeting (uses the visitor's own clock) ---------- */
+    var h = new Date().getHours();
+    var greeting = h < 5 ? "Heading out late? Let's check first."
+                 : h < 12 ? "Good morning 👋"
+                 : h < 17 ? "Good afternoon 👋"
+                 : h < 21 ? "Good evening 👋"
+                 : "Heading out tonight? Let's check first.";
+    document.getElementById('greeting').textContent = greeting;
+
+    var form = document.getElementById('searchForm');
+    var input = document.getElementById('locationInput');
+    var overlay = document.getElementById('loading');
+    var steps = overlay.querySelectorAll('.load-step');
+    var timer = null;
+
+    /* ---------- loading screen ---------- */
+    function showLoading() {
+        overlay.classList.add('show');
+        var i = 0;
+        function paint() {
+            steps.forEach(function (el, idx) {
+                el.classList.toggle('done', idx < i);
+                el.classList.toggle('active', idx === i);
+                el.querySelector('.mark').textContent = idx < i ? '✓' : (idx === i ? '◉' : '○');
+            });
+            if (i < steps.length - 1) i++;
+        }
+        paint();
+        timer = setInterval(paint, 1400);
     }
 
-    const input = document.getElementById('locationInput');
-    input.placeholder = "Getting your location...";
+    function hideLoading() {
+        overlay.classList.remove('show');
+        if (timer) clearInterval(timer);
+    }
 
-    navigator.geolocation.getCurrentPosition(
+    form.addEventListener('submit', function () {
+        if (input.value.trim()) showLoading();
+    });
 
-        (pos) => {
-            input.value = `${pos.coords.latitude},${pos.coords.longitude}`;
-        },
+    // coming back with the browser's Back button should not show a stuck overlay
+    window.addEventListener('pageshow', hideLoading);
 
-        (err) => {
-            alert("Could not get your location: " + err.message);
-            input.placeholder = "e.g. Koramangala, Bengaluru";
-        }
-    );
-}
+    /* ---------- use my location ---------- */
+    document.getElementById('gpsBtn').addEventListener('click', function () {
+        if (!navigator.geolocation) { alert("Geolocation isn't supported by your browser."); return; }
+        var old = input.placeholder;
+        input.placeholder = "Getting your location…";
+        navigator.geolocation.getCurrentPosition(
+            function (pos) {
+                input.value = pos.coords.latitude.toFixed(5) + "," + pos.coords.longitude.toFixed(5);
+                form.requestSubmit ? form.requestSubmit() : form.submit();
+            },
+            function (err) {
+                alert("Couldn't get your location: " + err.message);
+                input.placeholder = old;
+            },
+            { timeout: 10000 }
+        );
+    });
+
+    /* ---------- quick city chips ---------- */
+    document.querySelectorAll('.quick-city').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+            e.preventDefault();
+            input.value = a.dataset.city;
+            form.requestSubmit ? form.requestSubmit() : form.submit();
+        });
+    });
+
+    /* ---------- recent searches (this browser only) ---------- */
+    var KEY = 'safepath_recent_v1';
+    var box = document.getElementById('recentBox');
+    var list = document.getElementById('recentList');
+
+    function readRecent() {
+        try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; }
+    }
+
+    function renderRecent() {
+        var items = readRecent();
+        list.innerHTML = '';
+        box.hidden = items.length === 0;
+        items.forEach(function (item) {
+            var a = document.createElement('a');
+            a.href = '#';
+            a.className = 'chip';
+            a.textContent = '🕘 ' + item.city + ' · ' + item.score + '/100';
+            a.addEventListener('click', function (e) {
+                e.preventDefault();
+                input.value = item.query;
+                form.requestSubmit ? form.requestSubmit() : form.submit();
+            });
+            list.appendChild(a);
+        });
+    }
+
+    document.getElementById('clearRecent').addEventListener('click', function (e) {
+        e.preventDefault();
+        try { localStorage.removeItem(KEY); } catch (err) {}
+        renderRecent();
+    });
+
+    renderRecent();
+
+    /* ---------- reveal on scroll ---------- */
+    var els = document.querySelectorAll('.reveal');
+    if ('IntersectionObserver' in window) {
+        var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (en) {
+                if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+            });
+        }, { threshold: 0.12 });
+        els.forEach(function (el) { io.observe(el); });
+    } else {
+        els.forEach(function (el) { el.classList.add('in'); });
+    }
+})();
 </script>
 
 </body>
