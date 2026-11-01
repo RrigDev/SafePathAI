@@ -42,6 +42,8 @@ PHOTON_URL = "https://photon.komoot.io/api/"
 OVERPASS_URLS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 ]
 
 HEADERS = {
@@ -854,20 +856,27 @@ def haversine_km(lat1, lon1, lat2, lon2):
     return 2 * r * math.asin(math.sqrt(a))
 
 
+_OVERPASS_GATE = threading.Semaphore(2)  # public servers rate-limit bursts (HTTP 429)
+
+
 def overpass_query(query):
 
     """Returns a list of elements, or None if every server failed."""
 
-    for url in OVERPASS_URLS:
-        try:
-            response = requests.post(
-                url, data={"data": query}, headers=HEADERS, timeout=9
-            )
-            response.raise_for_status()
-            return response.json().get("elements", [])
+    with _OVERPASS_GATE:
+        for attempt in range(2):
+            for url in OVERPASS_URLS:
+                try:
+                    response = requests.post(
+                        url, data={"data": query}, headers=HEADERS, timeout=14
+                    )
+                    response.raise_for_status()
+                    return response.json().get("elements", [])
 
-        except Exception as e:
-            print(f"Overpass error ({url}):", e)
+                except Exception as e:
+                    print(f"Overpass error ({url}):", e)
+
+            time.sleep(1.5)
 
     return None
 

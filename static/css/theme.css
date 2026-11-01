@@ -584,3 +584,6 @@ details.method summary::-webkit-details-marker { display: none; }
     details.method > * { display: block; }
     a { color: #111 !important; text-decoration: none; }
 }
+
+/* Dark map look using free OpenStreetMap tiles */
+.leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.95) contrast(.9); }
