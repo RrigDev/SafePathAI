@@ -8,8 +8,9 @@ services:
     # (e.g. data file missing) the build still succeeds and the app simply
     # runs without the ML card.
     buildCommand: pip install -r requirements.txt && (python train_model.py || echo "ML training skipped")
-    startCommand: gunicorn app:app --timeout 90 --workers 1 --threads 4
+    startCommand: gunicorn app:app --timeout 90 --workers 1 --threads 2 --worker-tmp-dir /dev/shm --log-level info --access-logfile -
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+        
