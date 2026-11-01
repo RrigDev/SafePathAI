@@ -859,35 +859,39 @@ def haversine_km(lat1, lon1, lat2, lon2):
 _OVERPASS_GATE = threading.Semaphore(2)  # public servers rate-limit bursts (HTTP 429)
 
 
-def overpass_query(query):
+def overpass_query(query, deadline):
 
-    """Returns a list of elements, or None if every server failed."""
+    """Returns a list of elements, or None if every server failed or time ran out."""
 
     with _OVERPASS_GATE:
-        for attempt in range(2):
-            for url in OVERPASS_URLS:
-                try:
-                    response = requests.post(
-                        url, data={"data": query}, headers=HEADERS, timeout=14
-                    )
-                    response.raise_for_status()
-                    return response.json().get("elements", [])
+        for url in OVERPASS_URLS:
+            remaining = deadline - time.time()
+            if remaining < 2:
+                break
+            try:
+                response = requests.post(
+                    url, data={"data": query}, headers=HEADERS,
+                    timeout=min(8, remaining),
+                )
+                response.raise_for_status()
+                return response.json().get("elements", [])
 
-                except Exception as e:
-                    print(f"Overpass error ({url}):", e)
-
-            time.sleep(1.5)
+            except Exception as e:
+                print(f"Overpass error ({url}):", e)
 
     return None
 
 
-def find_nearest(lat, lng, tag, radii, label):
+def find_nearest(lat, lng, tag, radii, label, deadline=None):
 
     """
     Nearest OSM feature with the given tag. Searches small circles first and
     widens only if nothing is found, so the nearest one is never missed just
     because a large circle returned too many results.
     """
+
+    if deadline is None:
+        deadline = time.time() + 30
 
     for radius in radii:
 
@@ -897,7 +901,7 @@ def find_nearest(lat, lng, tag, radii, label):
             "out center 200;"
         )
 
-        elements = overpass_query(query)
+        elements = overpass_query(query, deadline)
 
         if elements is None:
             return None  # service unreachable — don't keep retrying
@@ -938,18 +942,20 @@ def get_destinations(lat, lng):
     if cached:
         return cached
 
+    deadline = time.time() + 35  # hard cap so a request can never hit the gunicorn timeout
+
     def find_transit():
         return (
-            find_nearest(lat, lng, '"highway"="bus_stop"', [500, 1200, 3000], "Bus stop")
-            or find_nearest(lat, lng, '"railway"="station"', [3000, 8000], "Station")
+            find_nearest(lat, lng, '"highway"="bus_stop"', [500, 1200, 3000], "Bus stop", deadline)
+            or find_nearest(lat, lng, '"railway"="station"', [3000, 8000], "Station", deadline)
         )
 
     with ThreadPoolExecutor(max_workers=3) as pool:
         f_hospital = pool.submit(
-            find_nearest, lat, lng, '"amenity"="hospital"', [1500, 4000, 10000], "Hospital"
+            find_nearest, lat, lng, '"amenity"="hospital"', [1500, 4000, 10000], "Hospital", deadline
         )
         f_police = pool.submit(
-            find_nearest, lat, lng, '"amenity"="police"', [1500, 4000, 10000], "Police station"
+            find_nearest, lat, lng, '"amenity"="police"', [1500, 4000, 10000], "Police station", deadline
         )
         f_transit = pool.submit(find_transit)
 
@@ -1161,3 +1167,4 @@ def server_error(_):
 if __name__ == "__main__":
 
     app.run(debug=True)
+    
