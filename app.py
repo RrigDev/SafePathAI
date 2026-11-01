@@ -229,6 +229,7 @@ try:
     import joblib
 
     ml_model = joblib.load(MODEL_DIR / "violent_predictor.joblib")
+    ml_model.n_jobs = 1  # on a tiny shared CPU, spawning worker threads per request can stall
     city_encoder = joblib.load(MODEL_DIR / "city_encoder.joblib")
     day_encoder = joblib.load(MODEL_DIR / "day_encoder.joblib")
 
@@ -942,7 +943,7 @@ def get_destinations(lat, lng):
     if cached:
         return cached
 
-    deadline = time.time() + 35  # hard cap so a request can never hit the gunicorn timeout
+    deadline = time.time() + 20  # hard cap so a request can never hit the gunicorn timeout
 
     def find_transit():
         return (
